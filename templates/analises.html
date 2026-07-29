@@ -131,3 +131,138 @@
 <script src="{{ url_for('static', filename='js/analises.js') }}"></script>
 </body>
 </html>
+=======
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>REDEB2B — Análises</title>
+
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet">
+</head>
+<body>
+
+<!-- ============================ TOPO ============================ -->
+<nav class="topbar d-flex align-items-center justify-content-between px-3">
+  <div class="d-flex align-items-center gap-2">
+    <span class="topbar-brand">REDE<span class="text-accent">B2B</span></span>
+    <span class="badge rounded-pill bg-mode ms-2">
+      <i class="bi bi-bar-chart-line"></i> Análises
+    </span>
+  </div>
+  <a href="/" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left"></i> Voltar ao painel
+  </a>
+</nav>
+
+<main class="p-3">
+
+  <!-- FILTRO DE PERÍODO -->
+  <div class="table-card p-3 mb-3">
+    <div class="d-flex flex-wrap align-items-end gap-2">
+      <div>
+        <label class="form-label d-block mb-1">Ano</label>
+        <select id="fAno" class="form-select form-select-sm" style="width:120px;">
+          <option value="">Últimos 6 meses</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label d-block mb-1">Mês</label>
+        <select id="fMes" class="form-select form-select-sm" style="width:150px;">
+          <option value="">Todos os meses</option>
+          <option value="1">Janeiro</option>
+          <option value="2">Fevereiro</option>
+          <option value="3">Março</option>
+          <option value="4">Abril</option>
+          <option value="5">Maio</option>
+          <option value="6">Junho</option>
+          <option value="7">Julho</option>
+          <option value="8">Agosto</option>
+          <option value="9">Setembro</option>
+          <option value="10">Outubro</option>
+          <option value="11">Novembro</option>
+          <option value="12">Dezembro</option>
+        </select>
+      </div>
+      <button class="btn btn-accent btn-sm" id="btnAplicarPeriodo">
+        <i class="bi bi-check2"></i> Aplicar
+      </button>
+      <button class="btn btn-outline-secondary btn-sm" id="btnLimparPeriodo">
+        <i class="bi bi-x-circle"></i> Últimos 6 meses
+      </button>
+      <div class="ms-auto text-muted small" id="periodoResumo">—</div>
+    </div>
+  </div>
+
+  <!-- KPIs DO PERÍODO -->
+  <div class="row g-3 mb-3 row-cols-1 row-cols-md-2 row-cols-lg-2">
+    <div class="col">
+      <div class="kpi-card kpi-grey">
+        <i class="bi bi-collection kpi-icon"></i>
+        <div>
+          <div class="kpi-label">Total de Registros no Período</div>
+          <div class="kpi-value" id="kpiTotalPeriodo">—</div>
+        </div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="kpi-card kpi-blue">
+        <i class="bi bi-star kpi-icon"></i>
+        <div>
+          <div class="kpi-label">Cliente com Mais Atividades</div>
+          <div class="kpi-value" id="kpiClienteTop" style="font-size:12pt;">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GRÁFICOS -->
+  <div class="row g-3 mb-3">
+    <div class="col-lg-6">
+      <div class="chart-card">
+        <h6>Concluídos — linha do tempo</h6>
+        <div class="chart-canvas-box" style="height:240px;"><canvas id="chartConcluidosTimeline"></canvas></div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="chart-card">
+        <h6>Metragem por Mês e Tecnologia</h6>
+        <div class="chart-canvas-box" style="height:240px;"><canvas id="chartMetragemMesTecnologia"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-lg-4 col-md-6">
+      <div class="chart-card">
+        <h6>Total por Executado Por</h6>
+        <div class="chart-canvas-box"><canvas id="chartExecutadoPorAnalise"></canvas></div>
+      </div>
+    </div>
+    <div class="col-lg-4 col-md-6">
+      <div class="chart-card">
+        <h6>Total por Status</h6>
+        <div class="chart-canvas-box"><canvas id="chartStatusAnalise"></canvas></div>
+      </div>
+    </div>
+    <div class="col-lg-4 col-md-6">
+      <div class="chart-card">
+        <h6>Drafts Criados por Mês</h6>
+        <div class="chart-canvas-box"><canvas id="chartDraftsPorMes"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<div id="alertContainer" class="alert-container"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/analises.js') }}"></script>
+</body>
+</html>
+>>>>>>> 402272d (Card Total de Metragem + nova página de Análises com filtro de período)
