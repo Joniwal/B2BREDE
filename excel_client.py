@@ -511,9 +511,12 @@ class DataClient:
         kpis["metragem_erb"] = round(metragem_erb, 1)
         kpis["metragem_gpon"] = round(metragem_gpon, 1)
 
+        kpis["pendente_agendamento_total"] = sum(
+            1 for r in rows if _strip_accents(r.get("STATUS")) == _strip_accents("PENDENTE AGENDAMENTO")
+        )
+
         return {
             "kpis": kpis,
-            "por_cidade": group_count("CIDADE"),
             "por_executadopor": group_count("EXECUTADOPOR"),
             "por_status": status_counts,
             "por_data_conclusao": self._group_by_date(concluidos_periodo, "DATACONCLUSAO"),
