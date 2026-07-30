@@ -104,19 +104,25 @@
   <main class="content p-3 flex-grow-1">
 
     <!-- KPI CARDS -->
-    <div class="row g-3 mb-3 row-cols-2 row-cols-md-3 row-cols-lg-6" id="kpiRow">
+    <div class="row g-3 mb-3 row-cols-2 row-cols-md-3 row-cols-lg-5" id="kpiRow">
       <!-- preenchido via JS -->
     </div>
 
     <!-- GRÁFICOS -->
     <div class="row g-3 mb-3">
-      <div class="col-lg-6 col-md-6">
+      <div class="col-lg-4 col-md-6">
+        <div class="chart-card">
+          <h6>Concluídos — últimos 5 meses</h6>
+          <div class="chart-canvas-box"><canvas id="chartConcluidos5Meses"></canvas></div>
+        </div>
+      </div>
+      <div class="col-lg-4 col-md-6">
         <div class="chart-card">
           <h6>Por Executado Por</h6>
           <div class="chart-canvas-box"><canvas id="chartExecutadoPor"></canvas></div>
         </div>
       </div>
-      <div class="col-lg-6 col-md-6">
+      <div class="col-lg-4 col-md-6">
         <div class="chart-card">
           <h6>Por Data de Conclusão</h6>
           <div class="chart-canvas-box"><canvas id="chartDataConclusao"></canvas></div>

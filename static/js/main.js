@@ -473,7 +473,6 @@ function renderKpis(kpis) {
   });
 
   const cards = [
-    { label: "Total de Registros", value: kpis.total ?? 0, icon: "bi-collection", color: "kpi-grey", statusFilter: "" },
     ...statusEntries.slice(0, 1).map(([status, count]) => ({
       label: status,
       value: count,
@@ -555,6 +554,7 @@ function destroyChart(key) {
 }
 
 function renderCharts(data) {
+  renderBarChart("chartConcluidos5Meses", data.concluidos_5_meses, "#59a869");
   renderBarChart("chartExecutadoPor", data.por_executadopor, "#f0913e");
   renderLineChart("chartDataConclusao", data.por_data_conclusao);
 }

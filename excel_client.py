@@ -515,8 +515,28 @@ class DataClient:
             1 for r in rows if _strip_accents(r.get("STATUS")) == _strip_accents("PENDENTE AGENDAMENTO")
         )
 
+        # Concluídos por mês, nos últimos 5 meses (incluindo o mês atual),
+        # respeitando os filtros aplicados (mesma base "rows" dos demais
+        # gráficos).
+        concluidos_todos = [r for r in rows if _strip_accents(r.get("STATUS")) == _strip_accents("Concluído")]
+        meses_alvo = self._ultimos_n_meses(5)
+        labels_meses = [f"{MESES_PT[mes - 1]}/{str(ano)[2:]}" for ano, mes in meses_alvo]
+        dados_meses = []
+        for ano, mes in meses_alvo:
+            total_mes = 0
+            for r in concluidos_todos:
+                d = _parse_date(r.get("DATACONCLUSAO"))
+                if not d:
+                    continue
+                ano_r, mes_r, _dia_r = d.split("-")
+                if int(ano_r) == ano and int(mes_r) == mes:
+                    total_mes += 1
+            dados_meses.append(total_mes)
+        concluidos_5_meses = {"labels": labels_meses, "data": dados_meses}
+
         return {
             "kpis": kpis,
+            "concluidos_5_meses": concluidos_5_meses,
             "por_executadopor": group_count("EXECUTADOPOR"),
             "por_status": status_counts,
             "por_data_conclusao": self._group_by_date(concluidos_periodo, "DATACONCLUSAO"),
