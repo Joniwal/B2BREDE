@@ -29,6 +29,18 @@ function bindEventosAnalise() {
     document.getElementById("fMes").value = "";
     carregarAnalise();
   });
+
+  document.querySelectorAll(".chart-export-icon").forEach((icon) => {
+    icon.addEventListener("click", () => {
+      const grafico = icon.dataset.grafico;
+      const ano = document.getElementById("fAno").value;
+      const mes = document.getElementById("fMes").value;
+      const params = new URLSearchParams({ grafico });
+      if (ano) params.append("ano", ano);
+      if (mes) params.append("mes", mes);
+      window.open(`/api/analytics/export?${params.toString()}`, "_blank");
+    });
+  });
 }
 
 function escapeHtml(str) {
@@ -89,7 +101,8 @@ function renderizarAnalise(data) {
     : "—";
 
   renderLineChartAnalise("chartConcluidosTimeline", data.concluidos_timeline, "#59a869");
-  renderMetragemMesTecnologia("chartMetragemMesTecnologia", data.metragem_por_mes_tecnologia);
+  renderGroupedBarChart("chartMetragemMesTecnologia", data.metragem_por_mes_tecnologia);
+  renderGroupedBarChart("chartTipoCaboPorMes", data.por_mes_tipocabo);
   renderBarChartAnalise("chartExecutadoPorAnalise", data.por_executado_por, "#f0913e");
   renderBarChartAnalise("chartStatusAnalise", data.por_status, "#6c5ce7");
   renderBarChartAnalise("chartDraftsPorMes", data.drafts_por_mes, "#3d95c4");
@@ -154,7 +167,7 @@ function renderLineChartAnalise(canvasId, dataset, color) {
 
 const CORES_TECNOLOGIA = ["#3d95c4", "#59a869", "#f0913e", "#6c5ce7", "#d9483a", "#17a2b8"];
 
-function renderMetragemMesTecnologia(canvasId, dataset) {
+function renderGroupedBarChart(canvasId, dataset) {
   destruirGrafico(canvasId);
   const ctx = document.getElementById(canvasId).getContext("2d");
   const datasets = (dataset.datasets || []).map((ds, idx) => ({

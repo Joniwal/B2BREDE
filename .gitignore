@@ -1,5 +1,26 @@
+# Ambiente virtual Python (milhares de arquivos — nunca deve ir para o Git)
+venv/
+env/
+.venv/
+
+# Cache do Python
 __pycache__/
 *.pyc
+
+# Variáveis de ambiente com dados sensíveis/locais
 .env
-venv/
-.venv/
+
+# Arquivos de dados locais (podem conter dados reais de clientes)
+*.xlsx
+
+# Arquivos de IDE/SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Gerados pelo PyInstaller ao criar o executável (build_exe.bat) — grandes
+# e sempre recriáveis a partir do código-fonte, não precisam ir para o Git.
+build/
+dist/
+*.spec

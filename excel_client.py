@@ -329,6 +329,23 @@ class DataClient:
             metragem_datasets.append({"label": tecnologia, "data": valores})
         metragem_por_mes_tecnologia = {"labels": labels_meses, "datasets": metragem_datasets}
 
+        # 2b) Total por Tipo de Cabo, por mês (por DATAAGENDAMENTO)
+        tipos_cabo_presentes = sorted({
+            (r.get("TIPOCABO") or "").strip() or "Não informado" for r in rows
+        })
+        tipocabo_datasets = []
+        for tipo_cabo in tipos_cabo_presentes:
+            valores = []
+            for ano_m, mes_m in meses_alvo:
+                subset = filtrar_por_mes(rows, "DATAAGENDAMENTO", ano_m, mes_m)
+                total = sum(
+                    1 for r in subset
+                    if ((r.get("TIPOCABO") or "").strip() or "Não informado") == tipo_cabo
+                )
+                valores.append(total)
+            tipocabo_datasets.append({"label": tipo_cabo, "data": valores})
+        por_mes_tipocabo = {"labels": labels_meses, "datasets": tipocabo_datasets}
+
         # Junta todos os registros de todos os meses da janela, para as
         # agregações "totais no período" abaixo (executado por, cliente,
         # status, drafts).
@@ -373,11 +390,58 @@ class DataClient:
             "total_registros_periodo": len(rows_na_janela),
             "concluidos_timeline": concluidos_timeline,
             "metragem_por_mes_tecnologia": metragem_por_mes_tecnologia,
+            "por_mes_tipocabo": por_mes_tipocabo,
             "por_executado_por": por_executado_por,
             "cliente_top": {"cliente": cliente_top_nome, "total": cliente_top_total},
             "por_status": por_status,
             "drafts_por_mes": drafts_por_mes,
         }
+
+    def analytics_export(self, ano=None, mes=None, grafico="geral"):
+        """Retorna as linhas (registros completos) que alimentam um gráfico
+        específico da página de Análises, respeitando a mesma janela de
+        tempo (ano/mês) usada em analytics(). Usado para o botão de baixar
+        Excel em cada card de gráfico."""
+        rows = self._excel_read_all()
+
+        if ano and mes:
+            meses_alvo = [(int(ano), int(mes))]
+        elif ano:
+            meses_alvo = [(int(ano), m) for m in range(1, 13)]
+        else:
+            meses_alvo = self._ultimos_n_meses(6)
+
+        def filtrar_por_mes(base_rows, campo_data, ano_alvo, mes_alvo):
+            resultado = []
+            for r in base_rows:
+                d = _parse_date(r.get(campo_data))
+                if not d:
+                    continue
+                ano_r, mes_r, _dia_r = d.split("-")
+                if int(ano_r) == ano_alvo and int(mes_r) == mes_alvo:
+                    resultado.append(r)
+            return resultado
+
+        rows_na_janela = []
+        for ano_m, mes_m in meses_alvo:
+            rows_na_janela.extend(filtrar_por_mes(rows, "DATAAGENDAMENTO", ano_m, mes_m))
+
+        if grafico == "concluidos_timeline":
+            resultado = []
+            for ano_m, mes_m in meses_alvo:
+                subset = filtrar_por_mes(rows, "DATACONCLUSAO", ano_m, mes_m)
+                resultado.extend(
+                    r for r in subset if _strip_accents(r.get("STATUS")) == _strip_accents("Concluído")
+                )
+            return resultado
+
+        if grafico == "drafts_por_mes":
+            return [r for r in rows_na_janela if (r.get("NUMDRAFT") or "").strip()]
+
+        # metragem_por_mes_tecnologia, por_mes_tipocabo, por_executado_por,
+        # por_status (e qualquer outro/"geral") usam todos os registros da
+        # janela, já que são apenas agrupamentos diferentes do mesmo total.
+        return rows_na_janela
 
     def status_arquivo(self):
         """Diagnóstico: informa se o Excel foi localizado, onde, e quais
@@ -450,9 +514,10 @@ class DataClient:
         rows = self._excel_read_all()
         rows = self._apply_filters(rows, filters)
 
-        def group_count(field):
+        def group_count(field, base_rows=None):
+            base_rows = rows if base_rows is None else base_rows
             counts = {}
-            for row in rows:
+            for row in base_rows:
                 key = row.get(field) or "Não informado"
                 counts[key] = counts.get(key, 0) + 1
             sorted_items = sorted(counts.items(), key=lambda kv: kv[1], reverse=True)[:12]
@@ -534,10 +599,28 @@ class DataClient:
             dados_meses.append(total_mes)
         concluidos_5_meses = {"labels": labels_meses, "data": dados_meses}
 
+        # "Por Executado Por": por padrão, mostra apenas o mês vigente
+        # (usando DATAAGENDAMENTO); se houver filtro ativo, respeita o
+        # filtro em vez do mês (mesma lógica já usada para "Concluídos").
+        if filters:
+            rows_executadopor = rows
+        else:
+            hoje = datetime.today()
+            ano_atual, mes_atual = hoje.year, hoje.month
+
+            def _no_mes_atual_agendamento(row):
+                d = _parse_date(row.get("DATAAGENDAMENTO"))
+                if not d:
+                    return False
+                ano, mes, _dia = d.split("-")
+                return int(ano) == ano_atual and int(mes) == mes_atual
+
+            rows_executadopor = [r for r in rows if _no_mes_atual_agendamento(r)]
+
         return {
             "kpis": kpis,
             "concluidos_5_meses": concluidos_5_meses,
-            "por_executadopor": group_count("EXECUTADOPOR"),
+            "por_executadopor": group_count("EXECUTADOPOR", rows_executadopor),
             "por_status": status_counts,
             "por_data_conclusao": self._group_by_date(concluidos_periodo, "DATACONCLUSAO"),
         }

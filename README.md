@@ -125,6 +125,42 @@ python app.py
 ```
 Acesse **http://localhost:5000** no navegador.
 
+### 2.4 Atalho de duplo-clique (Windows)
+
+Depois de configurar o `venv` uma vez (passos 2.2), dê um duplo-clique em
+**`iniciar_redeb2b.bat`** — ele ativa o ambiente virtual, sobe o servidor e
+abre o navegador automaticamente em `http://localhost:5000`. Não precisa
+abrir terminal nenhum a partir daí.
+
+### 2.5 Gerando um executável (.exe) standalone
+
+Se quiser um `.exe` que roda **mesmo em outro computador sem Python
+instalado**, use o script de build incluído:
+
+```
+build_exe.bat
+```
+
+Dê um duplo-clique nele (ou rode pelo terminal). Ele instala o PyInstaller
+automaticamente (dentro do seu `venv`) e gera **um único arquivo**
+executável em:
+```
+dist\REDEB2B.exe
+```
+
+**Antes de usar/distribuir**, coloque na mesma pasta onde ficar o
+`REDEB2B.exe`:
+- o seu `.env` já configurado (copiado do `.env.example`, com o
+  `EXCEL_PATH`/`EXCEL_FILENAME` corretos) — coloque `FLASK_DEBUG=false`
+  nessa cópia, já que o modo debug do Flask não é recomendado para um
+  executável empacotado.
+
+Como é modo `--onefile`, é só copiar o `REDEB2B.exe` (e o `.env` do lado)
+para outro computador — sem pasta extra ao redor. O arquivo fica grande
+(dezenas a centenas de MB, já que inclui o Python e as bibliotecas), e a
+primeira abertura pode demorar alguns segundos a mais (ele extrai tudo
+para uma pasta temporária antes de iniciar) — isso é normal.
+
 ---
 
 ## 3. Segurança e observações

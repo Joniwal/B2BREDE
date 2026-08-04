@@ -191,6 +191,16 @@ body {
   letter-spacing: .4px;
   margin-bottom: 8px;
 }
+.chart-export-icon {
+  cursor: pointer;
+  font-size: 11pt;
+  color: #59a869;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.chart-export-icon:hover {
+  color: #3d7a4d;
+}
 /* Chart.js precisa de um container com altura FIXA e position:relative para
    calcular corretamente o tamanho do canvas quando responsive:true. Sem
    isso, o gráfico pode renderizar com altura 0 (ficando "vazio" visualmente),

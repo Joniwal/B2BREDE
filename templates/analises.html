@@ -87,16 +87,31 @@
 
   <!-- GRÁFICOS -->
   <div class="row g-3 mb-3">
-    <div class="col-lg-6">
+    <div class="col-lg-4">
       <div class="chart-card">
-        <h6>Concluídos — linha do tempo</h6>
+        <h6 class="d-flex justify-content-between align-items-center">
+          <span>Concluídos — linha do tempo</span>
+          <i class="bi bi-file-earmark-excel chart-export-icon" data-grafico="concluidos_timeline" title="Baixar Excel destes dados"></i>
+        </h6>
         <div class="chart-canvas-box" style="height:240px;"><canvas id="chartConcluidosTimeline"></canvas></div>
       </div>
     </div>
-    <div class="col-lg-6">
+    <div class="col-lg-4">
       <div class="chart-card">
-        <h6>Metragem por Mês e Tecnologia</h6>
+        <h6 class="d-flex justify-content-between align-items-center">
+          <span>Metragem por Mês e Tecnologia</span>
+          <i class="bi bi-file-earmark-excel chart-export-icon" data-grafico="metragem_por_mes_tecnologia" title="Baixar Excel destes dados"></i>
+        </h6>
         <div class="chart-canvas-box" style="height:240px;"><canvas id="chartMetragemMesTecnologia"></canvas></div>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <div class="chart-card">
+        <h6 class="d-flex justify-content-between align-items-center">
+          <span>Tipo de Cabo por Mês</span>
+          <i class="bi bi-file-earmark-excel chart-export-icon" data-grafico="por_mes_tipocabo" title="Baixar Excel destes dados"></i>
+        </h6>
+        <div class="chart-canvas-box" style="height:240px;"><canvas id="chartTipoCaboPorMes"></canvas></div>
       </div>
     </div>
   </div>
@@ -104,19 +119,28 @@
   <div class="row g-3 mb-3">
     <div class="col-lg-4 col-md-6">
       <div class="chart-card">
-        <h6>Total por Executado Por</h6>
+        <h6 class="d-flex justify-content-between align-items-center">
+          <span>Total por Executado Por</span>
+          <i class="bi bi-file-earmark-excel chart-export-icon" data-grafico="por_executado_por" title="Baixar Excel destes dados"></i>
+        </h6>
         <div class="chart-canvas-box"><canvas id="chartExecutadoPorAnalise"></canvas></div>
       </div>
     </div>
     <div class="col-lg-4 col-md-6">
       <div class="chart-card">
-        <h6>Total por Status</h6>
+        <h6 class="d-flex justify-content-between align-items-center">
+          <span>Total por Status</span>
+          <i class="bi bi-file-earmark-excel chart-export-icon" data-grafico="por_status" title="Baixar Excel destes dados"></i>
+        </h6>
         <div class="chart-canvas-box"><canvas id="chartStatusAnalise"></canvas></div>
       </div>
     </div>
     <div class="col-lg-4 col-md-6">
       <div class="chart-card">
-        <h6>Drafts Criados por Mês</h6>
+        <h6 class="d-flex justify-content-between align-items-center">
+          <span>Drafts Criados por Mês</span>
+          <i class="bi bi-file-earmark-excel chart-export-icon" data-grafico="drafts_por_mes" title="Baixar Excel destes dados"></i>
+        </h6>
         <div class="chart-canvas-box"><canvas id="chartDraftsPorMes"></canvas></div>
       </div>
     </div>

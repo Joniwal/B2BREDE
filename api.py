@@ -160,6 +160,39 @@ def get_analytics():
         return jsonify({"ok": False, "error": "Erro interno ao gerar as análises."}), 500
 
 
+@api_bp.route("/analytics/export", methods=["GET"])
+def export_analytics():
+    """Baixa em .xlsx os registros que alimentam um gráfico específico da
+    página de Análises, respeitando o mesmo filtro de período (ano/mes)."""
+    try:
+        ano_raw = request.args.get("ano")
+        mes_raw = request.args.get("mes")
+        ano = int(ano_raw) if ano_raw else None
+        mes = int(mes_raw) if mes_raw else None
+        grafico = request.args.get("grafico", "geral")
+
+        rows = data_client.analytics_export(ano=ano, mes=mes, grafico=grafico)
+        df = pd.DataFrame(rows, columns=FIELDS)
+        buffer = io.BytesIO()
+        df.to_excel(buffer, index=False, sheet_name="REDEB2B")
+        buffer.seek(0)
+
+        filename = f"REDEB2B_analise_{grafico}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=filename,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+    except DataClientError as exc:
+        return _error_response(exc)
+    except ValueError:
+        return jsonify({"ok": False, "error": "Parâmetros 'ano'/'mes' inválidos."}), 400
+    except Exception:  # noqa: BLE001
+        logger.exception("Erro inesperado em GET /api/analytics/export")
+        return jsonify({"ok": False, "error": "Erro interno ao gerar a exportação."}), 500
+
+
 @api_bp.route("/excel-status", methods=["GET"])
 def excel_status():
     """Diagnóstico rápido: mostra se o Excel foi localizado e em qual
