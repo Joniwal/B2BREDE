@@ -1,0 +1,5 @@
+venv\Scripts\activate
+python -m pip install pyinstaller
+
+
+python -m PyInstaller --name REDEB2B --noconfirm --onefile --add-data "templates;templates" --add-data "static;static" --collect-all pandas --collect-all openpyxl --collect-all flask app.py
