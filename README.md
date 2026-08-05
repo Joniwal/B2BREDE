@@ -135,15 +135,30 @@ abrir terminal nenhum a partir daí.
 ### 2.5 Gerando um executável (.exe) standalone
 
 Se quiser um `.exe` que roda **mesmo em outro computador sem Python
-instalado**, use o script de build incluído:
+instalado**, instale o PyInstaller (só é necessário para gerar o `.exe`,
+não faz parte das dependências normais da aplicação):
 
+```bash
+python -m pip install pyinstaller
+```
+
+**Opção A — script `build_exe.bat`** (mais rápido, mas alguns ambientes
+corporativos bloqueiam a execução de arquivos `.bat` por política de
+segurança):
 ```
 build_exe.bat
 ```
 
-Dê um duplo-clique nele (ou rode pelo terminal). Ele instala o PyInstaller
-automaticamente (dentro do seu `venv`) e gera **um único arquivo**
-executável em:
+**Opção B — comando direto** (funciona em qualquer ambiente, inclusive
+onde `.bat` é bloqueado — quem "executa" aqui é o `python.exe`, já
+autorizado, não um `.exe`/`.bat` novo):
+```bash
+python -m PyInstaller --name REDEB2B --noconfirm --onefile --icon static/favicon.ico --add-data "templates;templates" --add-data "static;static" --collect-all pandas --collect-all openpyxl --collect-all flask app.py
+```
+(a flag `--icon static/favicon.ico` usa o ícone do projeto como ícone do
+`.exe` gerado; pode omitir essa flag se não quiser um ícone customizado)
+
+Qualquer uma das duas opções gera **um único arquivo** executável em:
 ```
 dist\REDEB2B.exe
 ```
@@ -158,6 +173,7 @@ dist\REDEB2B.exe
 Como é modo `--onefile`, é só copiar o `REDEB2B.exe` (e o `.env` do lado)
 para outro computador — sem pasta extra ao redor. O arquivo fica grande
 (dezenas a centenas de MB, já que inclui o Python e as bibliotecas), e a
+
 primeira abertura pode demorar alguns segundos a mais (ele extrai tudo
 para uma pasta temporária antes de iniciar) — isso é normal.
 

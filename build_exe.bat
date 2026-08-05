@@ -24,7 +24,7 @@ echo.
 echo Gerando o executavel (isso pode levar alguns minutos)...
 echo.
 
-pyinstaller --name REDEB2B --noconfirm --onefile ^
+pyinstaller --name REDEB2B --noconfirm --onefile --icon static\favicon.ico ^
   --add-data "templates;templates" ^
   --add-data "static;static" ^
   --collect-all pandas ^

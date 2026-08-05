@@ -1,3 +1,7 @@
+cd redeb2b_app
+
+
+
 venv\Scripts\activate
 python -m pip install pyinstaller
 
