@@ -161,29 +161,6 @@ body {
 .kpi-blue   { background-color: #3d95c4; }
 .kpi-grey   { background-color: #8b96a5; }
 
-/* Card "Total de Metragem": mesma base do kpi-card, mas com uma pequena
-   quebra ERB/GPON no canto. Usa flex-wrap para que, se não houver espaço
-   suficiente (tela estreita ou números com muitos dígitos), a quebra
-   ERB/GPON desça para uma linha abaixo em vez de estourar pra fora do
-   card. */
-.kpi-metragem .flex-grow-1 {
-  min-width: 0;
-  padding-right: 44px;
-}
-.kpi-metragem-breakdown {
-  position: absolute;
-  right: 14px;
-  bottom: 10px;
-  font-size: 6.5pt;
-  text-align: right;
-  opacity: .85;
-  line-height: 1.4;
-  white-space: nowrap;
-}
-.kpi-metragem-breakdown strong {
-  font-size: 7pt;
-}
-
 /* ---------------------------------------------------------------------- */
 /* Charts                                                                  */
 /* ---------------------------------------------------------------------- */

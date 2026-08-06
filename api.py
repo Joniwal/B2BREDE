@@ -34,6 +34,7 @@ def _parse_pagination_and_filters():
         "cidade": request.args.get("cidade"),
         "executadopor": request.args.get("executadopor"),
         "status": request.args.get("status"),
+        "mes": request.args.get("mes"),
         "data_inicio": request.args.get("dataInicio"),
         "data_fim": request.args.get("dataFim"),
         "q": request.args.get("q"),

@@ -559,23 +559,6 @@ class DataClient:
             1 for r in rows if _strip_accents(r.get("STATUS")) == _strip_accents("Novo")
         )
 
-        # Total de metragem (geral, ERB e GPON), respeitando os filtros
-        # aplicados — usado no card "Total de Metragem" do topo.
-        metragem_total = 0.0
-        metragem_erb = 0.0
-        metragem_gpon = 0.0
-        for r in rows:
-            valor_metragem = _parse_metragem(r.get("METRAGEM"))
-            metragem_total += valor_metragem
-            tecnologia = _strip_accents(r.get("TECNOLOGIA"))
-            if tecnologia == "erb":
-                metragem_erb += valor_metragem
-            elif tecnologia == "gpon":
-                metragem_gpon += valor_metragem
-        kpis["metragem_total"] = round(metragem_total, 1)
-        kpis["metragem_erb"] = round(metragem_erb, 1)
-        kpis["metragem_gpon"] = round(metragem_gpon, 1)
-
         kpis["pendente_agendamento_total"] = sum(
             1 for r in rows if _strip_accents(r.get("STATUS")) == _strip_accents("PENDENTE AGENDAMENTO")
         )
@@ -654,6 +637,7 @@ class DataClient:
         cidade = filters.get("cidade")
         executadopor = filters.get("executadopor")
         status = filters.get("status")
+        mes = filters.get("mes")
         data_inicio = filters.get("data_inicio")
         data_fim = filters.get("data_fim")
         busca = filters.get("q")
@@ -669,6 +653,15 @@ class DataClient:
                 return False
             if status and _strip_accents(status) != _strip_accents(row.get("STATUS")):
                 return False
+            if mes:
+                if _strip_accents(row.get("STATUS")) != _strip_accents("Concluído"):
+                    return False
+                d = _parse_date(row.get("DATACONCLUSAO"))
+                if not d:
+                    return False
+                _ano_d, mes_d, _dia_d = d.split("-")
+                if int(mes_d) != int(mes):
+                    return False
             if data_inicio or data_fim:
                 d = _parse_date(row.get("DATAAGENDAMENTO"))
                 if not d:

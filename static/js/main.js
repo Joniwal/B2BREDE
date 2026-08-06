@@ -144,7 +144,7 @@ function bindEvents() {
   });
 
   document.getElementById("btnLimparFiltros").addEventListener("click", () => {
-    ["fCliente", "fId", "fCidade", "fExecutadoPor", "fStatus", "fDataInicio", "fDataFim"].forEach((id) => {
+    ["fCliente", "fId", "fCidade", "fExecutadoPor", "fStatus", "fMes", "fDataInicio", "fDataFim"].forEach((id) => {
       document.getElementById(id).value = "";
     });
     document.getElementById("quickSearch").value = "";
@@ -189,7 +189,7 @@ function bindEvents() {
   ["fCliente", "fId"].forEach((id) => {
     document.getElementById(id).addEventListener("input", applyLiveFilter);
   });
-  ["fCidade", "fExecutadoPor", "fStatus", "fDataInicio", "fDataFim"].forEach((id) => {
+  ["fCidade", "fExecutadoPor", "fStatus", "fMes", "fDataInicio", "fDataFim"].forEach((id) => {
     document.getElementById(id).addEventListener("change", applyLiveFilter);
   });
 
@@ -244,6 +244,7 @@ function collectFilters() {
     cidade: document.getElementById("fCidade").value || undefined,
     executadopor: document.getElementById("fExecutadoPor").value || undefined,
     status: document.getElementById("fStatus").value || undefined,
+    mes: document.getElementById("fMes").value || undefined,
     data_inicio: document.getElementById("fDataInicio").value || undefined,
     data_fim: document.getElementById("fDataFim").value || undefined,
     q: document.getElementById("quickSearch").value || undefined,
@@ -261,6 +262,7 @@ function buildQueryParams(extra = {}) {
     cidade: state.filters.cidade,
     executadopor: state.filters.executadopor,
     status: state.filters.status,
+    mes: state.filters.mes,
     dataInicio: state.filters.data_inicio,
     dataFim: state.filters.data_fim,
     q: state.filters.q,
@@ -515,23 +517,7 @@ function renderKpis(kpis) {
     </div>
   `).join("");
 
-  const metragemCardHtml = `
-    <div class="col">
-      <div class="kpi-card kpi-grey kpi-metragem">
-        <i class="bi bi-rulers kpi-icon"></i>
-        <div class="flex-grow-1">
-          <div class="kpi-label">Total de Metragem</div>
-          <div class="kpi-value">${kpis.metragem_total ?? 0}</div>
-        </div>
-        <div class="kpi-metragem-breakdown">
-          <div>ERB <strong>${kpis.metragem_erb ?? 0}</strong></div>
-          <div>GPON <strong>${kpis.metragem_gpon ?? 0}</strong></div>
-        </div>
-      </div>
-    </div>
-  `;
-
-  row.innerHTML = cardsHtml + metragemCardHtml;
+  row.innerHTML = cardsHtml;
 
   row.querySelectorAll(".kpi-clickable").forEach((el) => {
     el.addEventListener("click", () => {
