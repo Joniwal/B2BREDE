@@ -10,7 +10,6 @@ const state = {
   sort: "DATAAGENDAMENTO:desc", // mais recente primeiro, por padrão
   filters: {},
   charts: {},
-  deleteTargetId: null,
 };
 
 // Para acrescentar um novo status no futuro, basta adicionar o nome aqui —
@@ -214,7 +213,6 @@ function bindEvents() {
 
   document.getElementById("btnNovoRegistro").addEventListener("click", () => openCreateModal());
   document.getElementById("btnSalvarItem").addEventListener("click", () => submitItemForm());
-  document.getElementById("btnConfirmDelete").addEventListener("click", () => confirmDelete());
 
   document.getElementById("btnAtualizar").addEventListener("click", () => {
     loadItems();
@@ -396,16 +394,12 @@ function renderTable(items) {
       <td>${formatDateBR(item.DATAAGENDAMENTO)}</td>
       <td class="text-end">
         <i class="bi bi-eye action-icon" title="Ver / editar" data-action="view" data-id="${escapeHtml(item.IDCLIENTE)}"></i>
-        <i class="bi bi-trash action-icon text-danger" title="Excluir" data-action="delete" data-id="${escapeHtml(item.IDCLIENTE)}"></i>
       </td>
     </tr>
   `).join("");
 
   tbody.querySelectorAll('[data-action="view"]').forEach((el) => {
     el.addEventListener("click", () => openEditModal(el.dataset.id));
-  });
-  tbody.querySelectorAll('[data-action="delete"]').forEach((el) => {
-    el.addEventListener("click", () => openDeleteModal(el.dataset.id));
   });
 }
 
@@ -628,7 +622,7 @@ async function openDateItemsModal(dateStr, dateField = "DATAAGENDAMENTO", status
   document.getElementById("dateItemsLabel").textContent = formatDateBR(dateStr);
 
   const tbody = document.getElementById("dateItemsBody");
-  tbody.innerHTML = `<tr><td colspan="13" class="text-center text-muted py-3">Carregando...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="12" class="text-center text-muted py-3">Carregando...</td></tr>`;
   const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById("dateItemsModal"));
   modal.show();
 
@@ -637,7 +631,7 @@ async function openDateItemsModal(dateStr, dateField = "DATAAGENDAMENTO", status
     if (status) params.append("status", status);
     const items = await apiFetch(`/api/items-by-date?${params.toString()}`);
     if (!items.length) {
-      tbody.innerHTML = `<tr><td colspan="13" class="text-center text-muted py-3">Nenhum registro para esta data.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="12" class="text-center text-muted py-3">Nenhum registro para esta data.</td></tr>`;
       return;
     }
     tbody.innerHTML = items.map((it) => `
@@ -651,14 +645,13 @@ async function openDateItemsModal(dateStr, dateField = "DATAAGENDAMENTO", status
         <td><span class="status-badge" style="background-color:${statusColor(it.STATUS)};">${escapeHtml(it.STATUS || "—")}</span></td>
         <td>${formatDateBR(it.DATAAGENDAMENTO)}</td>
         <td>${formatDateBR(it.DATACONCLUSAO)}</td>
-        <td>${escapeHtml(it.TIPOCABO)}</td>
-        <td>${escapeHtml(it.METRAGEM)}</td>
+        <td class="text-wrap">${escapeHtml(it.OBSERVACAO || "—")}</td>
         <td>${escapeHtml(it.NUMDRAFT)}</td>
         <td>${escapeHtml(it.ROTA)}</td>
       </tr>
     `).join("");
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="13" class="text-center text-danger py-3">Erro ao carregar registros da data.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="12" class="text-center text-danger py-3">Erro ao carregar registros da data.</td></tr>`;
   }
 }
 
@@ -759,29 +752,5 @@ async function submitItemForm() {
   } catch (err) {
     document.getElementById("itemModalAlert").innerHTML =
       `<div class="alert alert-danger py-2">${escapeHtml(err.message)}</div>`;
-  }
-}
-
-/* -------------------------------------------------------------------- */
-/* Exclusão                                                              */
-/* -------------------------------------------------------------------- */
-function openDeleteModal(id) {
-  state.deleteTargetId = id;
-  document.getElementById("deleteItemLabel").textContent = id;
-  bootstrap.Modal.getOrCreateInstance(document.getElementById("deleteModal")).show();
-}
-
-async function confirmDelete() {
-  if (!state.deleteTargetId) return;
-  try {
-    await apiFetch(`/api/items/${encodeURIComponent(state.deleteTargetId)}`, { method: "DELETE" });
-    showAlert("Registro excluído com sucesso.", "success");
-    bootstrap.Modal.getOrCreateInstance(document.getElementById("deleteModal")).hide();
-    loadItems();
-    loadDashboard();
-  } catch (err) {
-    // erro já exibido via apiFetch
-  } finally {
-    state.deleteTargetId = null;
   }
 }

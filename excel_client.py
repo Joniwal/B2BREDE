@@ -17,7 +17,7 @@ import re
 import tempfile
 import threading
 import unicodedata
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -74,11 +74,18 @@ class DataClientError(Exception):
 
 
 def _strip_accents(value: str) -> str:
-    """Remove acentos para permitir buscas 'case/acento-insensitive'."""
+    """Normaliza texto para buscas/comparações sem diferença de caixa,
+    acentos ou espaços acidentais vindos das células do Excel."""
     if value is None:
         return ""
     nfkd = unicodedata.normalize("NFKD", str(value))
-    return "".join(c for c in nfkd if not unicodedata.combining(c)).lower()
+    sem_acentos = "".join(c for c in nfkd if not unicodedata.combining(c)).lower()
+    return " ".join(sem_acentos.split())
+
+
+def _is_concluido(row) -> bool:
+    """Indica se um registro está com o status Concluído."""
+    return _strip_accents(row.get("STATUS")) == "concluido"
 
 
 def _parse_date(value):
@@ -302,13 +309,15 @@ class DataClient:
                     resultado.append(r)
             return resultado
 
+        # Uma única base alimenta todos os gráficos de concluídos. Assim a
+        # linha do tempo e o total por executor nunca usam critérios diferentes.
+        concluidos = [r for r in rows if _is_concluido(r)]
+
         # 1) Linha do tempo de concluídos (por DATACONCLUSAO)
         dados_concluidos = []
         for ano_m, mes_m in meses_alvo:
-            subset = filtrar_por_mes(rows, "DATACONCLUSAO", ano_m, mes_m)
-            dados_concluidos.append(
-                sum(1 for r in subset if _strip_accents(r.get("STATUS")) == _strip_accents("Concluído"))
-            )
+            subset = filtrar_por_mes(concluidos, "DATACONCLUSAO", ano_m, mes_m)
+            dados_concluidos.append(len(subset))
         concluidos_timeline = {"labels": labels_meses, "data": dados_concluidos}
 
         # 2) Metragem por mês e tecnologia (por DATAAGENDAMENTO)
@@ -346,12 +355,17 @@ class DataClient:
             tipocabo_datasets.append({"label": tipo_cabo, "data": valores})
         por_mes_tipocabo = {"labels": labels_meses, "datasets": tipocabo_datasets}
 
-        # Junta todos os registros de todos os meses da janela, para as
-        # agregações "totais no período" abaixo (executado por, cliente,
-        # status, drafts).
+        # Junta todos os registros pela data de agendamento para as demais
+        # agregações do período (cliente, status, metragem e drafts).
         rows_na_janela = []
         for ano_m, mes_m in meses_alvo:
             rows_na_janela.extend(filtrar_por_mes(rows, "DATAAGENDAMENTO", ano_m, mes_m))
+
+        concluidos_na_janela = []
+        for ano_m, mes_m in meses_alvo:
+            concluidos_na_janela.extend(
+                filtrar_por_mes(concluidos, "DATACONCLUSAO", ano_m, mes_m)
+            )
 
         def contar(campo, base_rows):
             contagem = {}
@@ -360,8 +374,9 @@ class DataClient:
                 contagem[chave] = contagem.get(chave, 0) + 1
             return sorted(contagem.items(), key=lambda kv: kv[1], reverse=True)
 
-        # 3) Total por Executado Por
-        executado_ordenado = contar("EXECUTADOPOR", rows_na_janela)[:12]
+        # 3) Total por Executado Por: somente registros concluídos no período,
+        # usando a data de conclusão (a mesma base da linha do tempo).
+        executado_ordenado = contar("EXECUTADOPOR", concluidos_na_janela)[:12]
         por_executado_por = {
             "labels": [k for k, _ in executado_ordenado],
             "data": [v for _, v in executado_ordenado],
@@ -426,21 +441,20 @@ class DataClient:
         for ano_m, mes_m in meses_alvo:
             rows_na_janela.extend(filtrar_por_mes(rows, "DATAAGENDAMENTO", ano_m, mes_m))
 
-        if grafico == "concluidos_timeline":
+        if grafico in {"concluidos_timeline", "por_executado_por"}:
             resultado = []
             for ano_m, mes_m in meses_alvo:
                 subset = filtrar_por_mes(rows, "DATACONCLUSAO", ano_m, mes_m)
                 resultado.extend(
-                    r for r in subset if _strip_accents(r.get("STATUS")) == _strip_accents("Concluído")
+                    r for r in subset if _is_concluido(r)
                 )
             return resultado
 
         if grafico == "drafts_por_mes":
             return [r for r in rows_na_janela if (r.get("NUMDRAFT") or "").strip()]
 
-        # metragem_por_mes_tecnologia, por_mes_tipocabo, por_executado_por,
-        # por_status (e qualquer outro/"geral") usam todos os registros da
-        # janela, já que são apenas agrupamentos diferentes do mesmo total.
+        # metragem_por_mes_tecnologia, por_mes_tipocabo, por_status (e
+        # qualquer outro/"geral") usam todos os registros da janela.
         return rows_na_janela
 
     def status_arquivo(self):
@@ -532,41 +546,30 @@ class DataClient:
             "por_status": {k: v for k, v in zip(status_counts["labels"], status_counts["data"])},
         }
 
-        concluidos = [r for r in rows if _strip_accents(r.get("STATUS")) == _strip_accents("Concluído")]
+        concluidos = [r for r in rows if _is_concluido(r)]
 
-        if filters:
-            # Há filtro(s) ativo(s): mostra os concluídos conforme o filtro aplicado
-            # (rows já está filtrado por _apply_filters acima).
-            concluidos_periodo = concluidos
-            kpis["concluidos_label"] = "Concluídos (filtro)"
-        else:
-            # Sem filtro: por padrão, mostra apenas os concluídos do mês corrente.
-            hoje = datetime.today()
-            ano_atual, mes_atual = hoje.year, hoje.month
-
-            def _no_mes_atual(row):
-                d = _parse_date(row.get("DATACONCLUSAO"))
-                if not d:
-                    return False
-                ano, mes, _dia = d.split("-")
-                return int(ano) == ano_atual and int(mes) == mes_atual
-
-            concluidos_periodo = [r for r in concluidos if _no_mes_atual(r)]
-            kpis["concluidos_label"] = "Concluídos no mês"
-
-        kpis["concluidos_total"] = len(concluidos_periodo)
+        # O card principal mostra sempre o total concluído no dia anterior.
+        # Como "rows" já respeita os filtros da tela, o total também os
+        # respeita quando algum filtro estiver ativo.
+        ontem = (datetime.today().date() - timedelta(days=1)).isoformat()
+        concluidos_ontem = [
+            r for r in concluidos
+            if _parse_date(r.get("DATACONCLUSAO")) == ontem
+        ]
+        kpis["concluidos_label"] = "Concluídos ontem"
+        kpis["concluidos_total"] = len(concluidos_ontem)
         kpis["novos_total"] = sum(
-            1 for r in rows if _strip_accents(r.get("STATUS")) == _strip_accents("Novo")
+            1 for r in rows if _strip_accents(r.get("STATUS")) == "novo"
         )
 
         kpis["pendente_agendamento_total"] = sum(
-            1 for r in rows if _strip_accents(r.get("STATUS")) == _strip_accents("PENDENTE AGENDAMENTO")
+            1 for r in rows if _strip_accents(r.get("STATUS")) == "pendente agendamento"
         )
 
         # Concluídos por mês, nos últimos 5 meses (incluindo o mês atual),
         # respeitando os filtros aplicados (mesma base "rows" dos demais
         # gráficos).
-        concluidos_todos = [r for r in rows if _strip_accents(r.get("STATUS")) == _strip_accents("Concluído")]
+        concluidos_todos = concluidos
         meses_alvo = self._ultimos_n_meses(5)
         labels_meses = [f"{MESES_PT[mes - 1]}/{str(ano)[2:]}" for ano, mes in meses_alvo]
         dados_meses = []
@@ -582,30 +585,39 @@ class DataClient:
             dados_meses.append(total_mes)
         concluidos_5_meses = {"labels": labels_meses, "data": dados_meses}
 
-        # "Por Executado Por": por padrão, mostra apenas o mês vigente
-        # (usando DATAAGENDAMENTO); se houver filtro ativo, respeita o
-        # filtro em vez do mês (mesma lógica já usada para "Concluídos").
+        # "Por Executado Por": conta somente concluídos. Sem filtros, usa o
+        # mês vigente pela DATACONCLUSAO; com filtros, usa os concluídos da
+        # base filtrada.
+        hoje = datetime.today()
+        ano_atual, mes_atual = hoje.year, hoje.month
+
+        def _concluido_no_mes_atual(row):
+            d = _parse_date(row.get("DATACONCLUSAO"))
+            if not d:
+                return False
+            ano, mes, _dia = d.split("-")
+            return int(ano) == ano_atual and int(mes) == mes_atual
+
         if filters:
-            rows_executadopor = rows
+            rows_executadopor = concluidos
         else:
-            hoje = datetime.today()
-            ano_atual, mes_atual = hoje.year, hoje.month
+            rows_executadopor = [r for r in concluidos if _concluido_no_mes_atual(r)]
 
-            def _no_mes_atual_agendamento(row):
-                d = _parse_date(row.get("DATAAGENDAMENTO"))
-                if not d:
-                    return False
-                ano, mes, _dia = d.split("-")
-                return int(ano) == ano_atual and int(mes) == mes_atual
-
-            rows_executadopor = [r for r in rows if _no_mes_atual_agendamento(r)]
+        # Mantém o gráfico de datas com o comportamento anterior: no mês
+        # atual sem filtros, ou em toda a base resultante quando há filtros.
+        if filters:
+            concluidos_grafico_datas = concluidos
+        else:
+            concluidos_grafico_datas = [
+                r for r in concluidos if _concluido_no_mes_atual(r)
+            ]
 
         return {
             "kpis": kpis,
             "concluidos_5_meses": concluidos_5_meses,
             "por_executadopor": group_count("EXECUTADOPOR", rows_executadopor),
             "por_status": status_counts,
-            "por_data_conclusao": self._group_by_date(concluidos_periodo, "DATACONCLUSAO"),
+            "por_data_conclusao": self._group_by_date(concluidos_grafico_datas, "DATACONCLUSAO"),
         }
 
     def items_by_date(self, date_str, date_field="DATAAGENDAMENTO", status=None):
@@ -617,8 +629,8 @@ class DataClient:
             raise DataClientError(f"Campo de data inválido: {date_field}")
         rows = self._excel_read_all()
         cols = ["IDCLIENTE", "CLIENTE", "ENDERECO", "CIDADE", "TECNOLOGIA", "VT",
-                "DATAAGENDAMENTO", "DATACONCLUSAO", "STATUS", "TIPOCABO",
-                "METRAGEM", "NUMDRAFT", "ROTA"]
+                "DATAAGENDAMENTO", "DATACONCLUSAO", "STATUS", "OBSERVACAO",
+                "NUMDRAFT", "ROTA"]
         result = []
         for row in rows:
             if _parse_date(row.get(date_field)) != date_str:
