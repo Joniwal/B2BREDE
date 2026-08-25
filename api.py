@@ -35,6 +35,8 @@ def _parse_pagination_and_filters():
         "executadopor": request.args.get("executadopor"),
         "status": request.args.get("status"),
         "mes": request.args.get("mes"),
+        "ano_conclusao": request.args.get("anoConclusao"),
+        "data_conclusao": request.args.get("dataConclusao"),
         "data_inicio": request.args.get("dataInicio"),
         "data_fim": request.args.get("dataFim"),
         "q": request.args.get("q"),
@@ -143,7 +145,7 @@ def get_items_by_date():
 
 @api_bp.route("/analytics", methods=["GET"])
 def get_analytics():
-    """Dados para a página de Análises (/analises). Aceita 'ano' e/ou 'mes'
+    """Dados para a página Dashboard (/analises). Aceita 'ano' e/ou 'mes'
     como filtro de período; sem nenhum dos dois, usa os últimos 6 meses."""
     try:
         ano_raw = request.args.get("ano")
@@ -158,13 +160,13 @@ def get_analytics():
         return jsonify({"ok": False, "error": "Parâmetros 'ano'/'mes' inválidos."}), 400
     except Exception:  # noqa: BLE001
         logger.exception("Erro inesperado em GET /api/analytics")
-        return jsonify({"ok": False, "error": "Erro interno ao gerar as análises."}), 500
+        return jsonify({"ok": False, "error": "Erro interno ao gerar o Dashboard."}), 500
 
 
 @api_bp.route("/analytics/export", methods=["GET"])
 def export_analytics():
     """Baixa em .xlsx os registros que alimentam um gráfico específico da
-    página de Análises, respeitando o mesmo filtro de período (ano/mes)."""
+    página Dashboard, respeitando o mesmo filtro de período (ano/mes)."""
     try:
         ano_raw = request.args.get("ano")
         mes_raw = request.args.get("mes")
@@ -178,7 +180,7 @@ def export_analytics():
         df.to_excel(buffer, index=False, sheet_name="REDEB2B")
         buffer.seek(0)
 
-        filename = f"REDEB2B_analise_{grafico}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+        filename = f"REDEB2B_dashboard_{grafico}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
         return send_file(
             buffer,
             as_attachment=True,
