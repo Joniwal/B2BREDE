@@ -1,53 +1,64 @@
-/* Rótulos numéricos sobre barras, colunas e pontos dos gráficos. */
+/* Rótulos fixos: carregue após Chart.js e antes de main.js / analises.js. */
 (() => {
   const formatter = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
 
   const chartValueLabels = {
     id: "valueLabels",
+    defaults: {
+      color: "#333",
+      backgroundColor: "rgba(226, 226, 226, 0.95)",
+      fontSize: 11,
+      offset: 4,
+      showZero: true,
+    },
     afterDatasetsDraw(chart, _args, options) {
+      if (!chart.chartArea) return;
       const ctx = chart.ctx;
+      const fontSize = options.fontSize;
+      const labelHeight = fontSize + 6;
       ctx.save();
-      ctx.font = "600 9px Arial, sans-serif";
+      ctx.font = `600 ${fontSize}px 'Segoe UI', Arial, sans-serif`;
       ctx.textAlign = "center";
-      ctx.lineJoin = "round";
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
-      ctx.fillStyle = options.color || "#39424e";
+      ctx.textBaseline = "middle";
 
       chart.data.datasets.forEach((_dataset, datasetIndex) => {
+        if (!chart.isDatasetVisible(datasetIndex)) return;
         const meta = chart.getDatasetMeta(datasetIndex);
-        if (meta.hidden) return;
+        if (meta.type !== "bar" && meta.type !== "line") return;
 
         meta.data.forEach((element, index) => {
+          if (element.skip || element.hidden || !chart.getDataVisibility(index)) return;
           const parsed = meta.controller.getParsed(index);
           const valueAxis = meta.vScale?.axis || "y";
-          const value = Number(parsed[valueAxis]);
+          const rawValue = parsed?.[valueAxis];
+          if (rawValue === null || rawValue === undefined) return;
+          const value = Number(rawValue);
           if (!Number.isFinite(value) || (value === 0 && !options.showZero)) return;
+          if (!Number.isFinite(element.x) || !Number.isFinite(element.y)) return;
 
           const isPositive = value >= 0;
-          const isBar = meta.type === "bar";
-          const isHorizontalBar = isBar && valueAxis === "x";
-          let x = element.x;
-          let y = element.y;
-          let textAlign = "center";
-          let baseline = isPositive ? "bottom" : "top";
+          const isHorizontalBar = meta.type === "bar" && valueAxis === "x";
+          const label = formatter.format(value);
+          const labelWidth = ctx.measureText(label).width + 8;
+          let x = element.x - labelWidth / 2;
+          let y = isPositive
+            ? element.y - options.offset - labelHeight
+            : element.y + options.offset;
 
           if (isHorizontalBar) {
-            // Nas barras horizontais, o valor fica além da ponta direita/esquerda.
-            x += isPositive ? 7 : -7;
-            textAlign = isPositive ? "left" : "right";
-            baseline = "middle";
-          } else {
-            // Colunas e pontos: coloca o rótulo acima/abaixo da extremidade,
-            // nunca no centro ou dentro do elemento gráfico.
-            y += isPositive ? -7 : 7;
+            x = isPositive
+              ? element.x + options.offset
+              : element.x - options.offset - labelWidth;
+            y = element.y - labelHeight / 2;
           }
 
-          const label = formatter.format(value);
-          ctx.textAlign = textAlign;
-          ctx.textBaseline = baseline;
-          ctx.strokeText(label, x, y);
-          ctx.fillText(label, x, y);
+          // Mantém a caixa inteira dentro do canvas, inclusive nos extremos.
+          x = Math.max(2, Math.min(x, chart.width - labelWidth - 2));
+          y = Math.max(2, Math.min(y, chart.height - labelHeight - 2));
+          ctx.fillStyle = options.backgroundColor;
+          ctx.fillRect(x, y, labelWidth, labelHeight);
+          ctx.fillStyle = options.color;
+          ctx.fillText(label, x + labelWidth / 2, y + labelHeight / 2);
         });
       });
 

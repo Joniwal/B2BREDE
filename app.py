@@ -55,6 +55,7 @@ def create_app():
         return render_template("index.html")
 
     @app.route("/analises")
+    @app.route("/dashboard")
     def analises():
         return render_template("analises.html")
 

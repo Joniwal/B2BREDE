@@ -153,7 +153,7 @@ build_exe.bat
 onde `.bat` é bloqueado — quem "executa" aqui é o `python.exe`, já
 autorizado, não um `.exe`/`.bat` novo):
 ```bash
-python -m PyInstaller --name REDEB2B --noconfirm --onefile --noconsole --icon "static/favicon.ico" --add-data "templates;templates" --add-data "static;static" --collect-all pandas --collect-all openpyxl --collect-all flask app.py
+python -m PyInstaller --name REDEB2B --noconfirm --onefile --icon static/favicon.ico --add-data "templates;templates" --add-data "static;static" --collect-all pandas --collect-all openpyxl --collect-all flask app.py
 ```
 (a flag `--icon static/favicon.ico` usa o ícone do projeto como ícone do
 `.exe` gerado; pode omitir essa flag se não quiser um ícone customizado)

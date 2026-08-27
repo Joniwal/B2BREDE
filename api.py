@@ -35,8 +35,6 @@ def _parse_pagination_and_filters():
         "executadopor": request.args.get("executadopor"),
         "status": request.args.get("status"),
         "mes": request.args.get("mes"),
-        "ano_conclusao": request.args.get("anoConclusao"),
-        "data_conclusao": request.args.get("dataConclusao"),
         "data_inicio": request.args.get("dataInicio"),
         "data_fim": request.args.get("dataFim"),
         "q": request.args.get("q"),
@@ -145,14 +143,17 @@ def get_items_by_date():
 
 @api_bp.route("/analytics", methods=["GET"])
 def get_analytics():
-    """Dados para a página Dashboard (/analises). Aceita 'ano' e/ou 'mes'
-    como filtro de período; sem nenhum dos dois, usa os últimos 6 meses."""
+    """Dados para a página de Dashboard (/dashboard). Aceita 'ano' e/ou
+    'mes', ou um intervalo 'dataInicio'/'dataFim' (tem prioridade sobre
+    ano/mes); sem nenhum filtro, usa os últimos 6 meses."""
     try:
         ano_raw = request.args.get("ano")
         mes_raw = request.args.get("mes")
         ano = int(ano_raw) if ano_raw else None
         mes = int(mes_raw) if mes_raw else None
-        result = data_client.analytics(ano=ano, mes=mes)
+        data_inicio = request.args.get("dataInicio") or None
+        data_fim = request.args.get("dataFim") or None
+        result = data_client.analytics(ano=ano, mes=mes, data_inicio=data_inicio, data_fim=data_fim)
         return jsonify({"ok": True, "data": result})
     except DataClientError as exc:
         return _error_response(exc)
@@ -160,27 +161,32 @@ def get_analytics():
         return jsonify({"ok": False, "error": "Parâmetros 'ano'/'mes' inválidos."}), 400
     except Exception:  # noqa: BLE001
         logger.exception("Erro inesperado em GET /api/analytics")
-        return jsonify({"ok": False, "error": "Erro interno ao gerar o Dashboard."}), 500
+        return jsonify({"ok": False, "error": "Erro interno ao gerar as análises."}), 500
 
 
 @api_bp.route("/analytics/export", methods=["GET"])
 def export_analytics():
     """Baixa em .xlsx os registros que alimentam um gráfico específico da
-    página Dashboard, respeitando o mesmo filtro de período (ano/mes)."""
+    página de Dashboard, respeitando o mesmo filtro de período (ano/mes ou
+    intervalo de datas)."""
     try:
         ano_raw = request.args.get("ano")
         mes_raw = request.args.get("mes")
         ano = int(ano_raw) if ano_raw else None
         mes = int(mes_raw) if mes_raw else None
+        data_inicio = request.args.get("dataInicio") or None
+        data_fim = request.args.get("dataFim") or None
         grafico = request.args.get("grafico", "geral")
 
-        rows = data_client.analytics_export(ano=ano, mes=mes, grafico=grafico)
+        rows = data_client.analytics_export(
+            ano=ano, mes=mes, grafico=grafico, data_inicio=data_inicio, data_fim=data_fim
+        )
         df = pd.DataFrame(rows, columns=FIELDS)
         buffer = io.BytesIO()
         df.to_excel(buffer, index=False, sheet_name="REDEB2B")
         buffer.seek(0)
 
-        filename = f"REDEB2B_dashboard_{grafico}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+        filename = f"REDEB2B_analise_{grafico}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
         return send_file(
             buffer,
             as_attachment=True,

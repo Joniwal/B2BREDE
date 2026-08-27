@@ -4,6 +4,82 @@
    meses por padrão), busca dos dados agregados e renderização dos gráficos.
    ========================================================================== */
 
+/* INICIO ROTULOS FIXOS
+ * Embutido nas duas páginas para funcionar mesmo com o HTML antigo em cache.
+ * Mantenha este bloco igual em main.js e analises.js.
+ */
+(() => {
+  if (typeof Chart === "undefined") return;
+  const formatter = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
+
+  const chartValueLabels = {
+    id: "valueLabels",
+    defaults: {
+      color: "#333",
+      backgroundColor: "rgba(226, 226, 226, 0.95)",
+      fontSize: 11,
+      offset: 4,
+      showZero: true,
+    },
+    afterDatasetsDraw(chart, _args, options) {
+      if (!chart.chartArea) return;
+      const ctx = chart.ctx;
+      const fontSize = options.fontSize;
+      const labelHeight = fontSize + 6;
+      ctx.save();
+      ctx.font = `600 ${fontSize}px 'Segoe UI', Arial, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      chart.data.datasets.forEach((_dataset, datasetIndex) => {
+        if (!chart.isDatasetVisible(datasetIndex)) return;
+        const meta = chart.getDatasetMeta(datasetIndex);
+        if (meta.type !== "bar" && meta.type !== "line") return;
+
+        meta.data.forEach((element, index) => {
+          if (element.skip || element.hidden || !chart.getDataVisibility(index)) return;
+          const parsed = meta.controller.getParsed(index);
+          const valueAxis = meta.vScale?.axis || "y";
+          const rawValue = parsed?.[valueAxis];
+          if (rawValue === null || rawValue === undefined) return;
+          const value = Number(rawValue);
+          if (!Number.isFinite(value) || (value === 0 && !options.showZero)) return;
+          if (!Number.isFinite(element.x) || !Number.isFinite(element.y)) return;
+
+          const isPositive = value >= 0;
+          const isHorizontalBar = meta.type === "bar" && valueAxis === "x";
+          const label = formatter.format(value);
+          const labelWidth = ctx.measureText(label).width + 8;
+          let x = element.x - labelWidth / 2;
+          let y = isPositive
+            ? element.y - options.offset - labelHeight
+            : element.y + options.offset;
+
+          if (isHorizontalBar) {
+            x = isPositive
+              ? element.x + options.offset
+              : element.x - options.offset - labelWidth;
+            y = element.y - labelHeight / 2;
+          }
+
+          // Mantém a caixa inteira dentro do canvas, inclusive nos extremos.
+          x = Math.max(2, Math.min(x, chart.width - labelWidth - 2));
+          y = Math.max(2, Math.min(y, chart.height - labelHeight - 2));
+          ctx.fillStyle = options.backgroundColor;
+          ctx.fillRect(x, y, labelWidth, labelHeight);
+          ctx.fillStyle = options.color;
+          ctx.fillText(label, x + labelWidth / 2, y + labelHeight / 2);
+        });
+      });
+
+      ctx.restore();
+    },
+  };
+
+  Chart.register(chartValueLabels);
+})();
+/* FIM ROTULOS FIXOS */
+
 const analiseState = {
   charts: {},
 };
@@ -27,20 +103,37 @@ function bindEventosAnalise() {
   document.getElementById("btnLimparPeriodo").addEventListener("click", () => {
     document.getElementById("fAno").value = "";
     document.getElementById("fMes").value = "";
+    document.getElementById("fDataInicioAnalise").value = "";
+    document.getElementById("fDataFimAnalise").value = "";
     carregarAnalise();
   });
 
   document.querySelectorAll(".chart-export-icon").forEach((icon) => {
     icon.addEventListener("click", () => {
       const grafico = icon.dataset.grafico;
-      const ano = document.getElementById("fAno").value;
-      const mes = document.getElementById("fMes").value;
-      const params = new URLSearchParams({ grafico });
-      if (ano) params.append("ano", ano);
-      if (mes) params.append("mes", mes);
+      const params = coletarFiltrosPeriodo();
+      params.append("grafico", grafico);
       window.open(`/api/analytics/export?${params.toString()}`, "_blank");
     });
   });
+}
+
+function coletarFiltrosPeriodo() {
+  const ano = document.getElementById("fAno").value;
+  const mes = document.getElementById("fMes").value;
+  const dataInicio = document.getElementById("fDataInicioAnalise").value;
+  const dataFim = document.getElementById("fDataFimAnalise").value;
+
+  const params = new URLSearchParams();
+  // Um intervalo de datas tem prioridade sobre ano/mês (mesma regra do backend).
+  if (dataInicio || dataFim) {
+    if (dataInicio) params.append("dataInicio", dataInicio);
+    if (dataFim) params.append("dataFim", dataFim);
+  } else {
+    if (ano) params.append("ano", ano);
+    if (mes) params.append("mes", mes);
+  }
+  return params;
 }
 
 function escapeHtml(str) {
@@ -59,14 +152,8 @@ function showAlert(message, type = "danger") {
 }
 
 async function carregarAnalise() {
-  const ano = document.getElementById("fAno").value;
-  const mes = document.getElementById("fMes").value;
-
-  const params = new URLSearchParams();
-  if (ano) params.append("ano", ano);
-  if (mes) params.append("mes", mes);
-
-  atualizarResumoPeriodo(ano, mes);
+  const params = coletarFiltrosPeriodo();
+  atualizarResumoPeriodo();
 
   try {
     const resp = await fetch(`/api/analytics?${params.toString()}`);
@@ -80,11 +167,27 @@ async function carregarAnalise() {
   }
 }
 
-function atualizarResumoPeriodo(ano, mes) {
+function atualizarResumoPeriodo() {
   const resumo = document.getElementById("periodoResumo");
+  const ano = document.getElementById("fAno").value;
+  const mes = document.getElementById("fMes").value;
+  const dataInicio = document.getElementById("fDataInicioAnalise").value;
+  const dataFim = document.getElementById("fDataFimAnalise").value;
   const nomesMeses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
     "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-  if (ano && mes) {
+
+  if (dataInicio || dataFim) {
+    const formatar = (iso) => {
+      if (!iso) return "";
+      const [ano_, mes_, dia_] = iso.split("-");
+      return `${dia_}/${mes_}/${ano_}`;
+    };
+    if (dataInicio && dataFim) {
+      resumo.textContent = `Período: ${formatar(dataInicio)} até ${formatar(dataFim)}`;
+    } else {
+      resumo.textContent = `Período: a partir de ${formatar(dataInicio || dataFim)}`;
+    }
+  } else if (ano && mes) {
     resumo.textContent = `Período: ${nomesMeses[parseInt(mes, 10) - 1]} de ${ano}`;
   } else if (ano) {
     resumo.textContent = `Período: ano de ${ano} (todos os meses)`;
@@ -126,8 +229,9 @@ function renderBarChartAnalise(canvasId, dataset, color) {
     },
     options: {
       plugins: { legend: { display: false } },
+      layout: { padding: { top: 24, left: 8, right: 8 } },
       scales: {
-        y: { beginAtZero: true, ticks: { precision: 0, font: { size: 8 } } },
+        y: { beginAtZero: true, grace: "10%", ticks: { precision: 0, font: { size: 8 } } },
         x: { ticks: { font: { size: 8 }, maxRotation: 60, minRotation: 45 } },
       },
       responsive: true,
@@ -155,8 +259,9 @@ function renderLineChartAnalise(canvasId, dataset, color) {
     },
     options: {
       plugins: { legend: { display: false } },
+      layout: { padding: { top: 24, left: 16, right: 16 } },
       scales: {
-        y: { beginAtZero: true, ticks: { precision: 0, font: { size: 8 } } },
+        y: { beginAtZero: true, grace: "10%", ticks: { precision: 0, font: { size: 8 } } },
         x: { ticks: { font: { size: 8 } } },
       },
       responsive: true,
@@ -182,9 +287,11 @@ function renderGroupedBarChart(canvasId, dataset) {
     options: {
       plugins: {
         legend: { display: true, position: "bottom", labels: { font: { size: 8 }, boxWidth: 10 } },
+        valueLabels: { fontSize: 9 },
       },
+      layout: { padding: { top: 24, left: 8, right: 8 } },
       scales: {
-        y: { beginAtZero: true, ticks: { precision: 0, font: { size: 8 } } },
+        y: { beginAtZero: true, grace: "10%", ticks: { precision: 0, font: { size: 8 } } },
         x: { ticks: { font: { size: 8 } } },
       },
       responsive: true,

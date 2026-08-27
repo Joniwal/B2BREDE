@@ -4,6 +4,82 @@
    tabela, paginação, ordenação, filtros, dashboard (Chart.js) e modais.
    ========================================================================== */
 
+/* INICIO ROTULOS FIXOS
+ * Embutido nas duas páginas para funcionar mesmo com o HTML antigo em cache.
+ * Mantenha este bloco igual em main.js e analises.js.
+ */
+(() => {
+  if (typeof Chart === "undefined") return;
+  const formatter = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
+
+  const chartValueLabels = {
+    id: "valueLabels",
+    defaults: {
+      color: "#333",
+      backgroundColor: "rgba(226, 226, 226, 0.95)",
+      fontSize: 11,
+      offset: 4,
+      showZero: true,
+    },
+    afterDatasetsDraw(chart, _args, options) {
+      if (!chart.chartArea) return;
+      const ctx = chart.ctx;
+      const fontSize = options.fontSize;
+      const labelHeight = fontSize + 6;
+      ctx.save();
+      ctx.font = `600 ${fontSize}px 'Segoe UI', Arial, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      chart.data.datasets.forEach((_dataset, datasetIndex) => {
+        if (!chart.isDatasetVisible(datasetIndex)) return;
+        const meta = chart.getDatasetMeta(datasetIndex);
+        if (meta.type !== "bar" && meta.type !== "line") return;
+
+        meta.data.forEach((element, index) => {
+          if (element.skip || element.hidden || !chart.getDataVisibility(index)) return;
+          const parsed = meta.controller.getParsed(index);
+          const valueAxis = meta.vScale?.axis || "y";
+          const rawValue = parsed?.[valueAxis];
+          if (rawValue === null || rawValue === undefined) return;
+          const value = Number(rawValue);
+          if (!Number.isFinite(value) || (value === 0 && !options.showZero)) return;
+          if (!Number.isFinite(element.x) || !Number.isFinite(element.y)) return;
+
+          const isPositive = value >= 0;
+          const isHorizontalBar = meta.type === "bar" && valueAxis === "x";
+          const label = formatter.format(value);
+          const labelWidth = ctx.measureText(label).width + 8;
+          let x = element.x - labelWidth / 2;
+          let y = isPositive
+            ? element.y - options.offset - labelHeight
+            : element.y + options.offset;
+
+          if (isHorizontalBar) {
+            x = isPositive
+              ? element.x + options.offset
+              : element.x - options.offset - labelWidth;
+            y = element.y - labelHeight / 2;
+          }
+
+          // Mantém a caixa inteira dentro do canvas, inclusive nos extremos.
+          x = Math.max(2, Math.min(x, chart.width - labelWidth - 2));
+          y = Math.max(2, Math.min(y, chart.height - labelHeight - 2));
+          ctx.fillStyle = options.backgroundColor;
+          ctx.fillRect(x, y, labelWidth, labelHeight);
+          ctx.fillStyle = options.color;
+          ctx.fillText(label, x + labelWidth / 2, y + labelHeight / 2);
+        });
+      });
+
+      ctx.restore();
+    },
+  };
+
+  Chart.register(chartValueLabels);
+})();
+/* FIM ROTULOS FIXOS */
+
 const state = {
   page: 1,
   pageSize: 20,
@@ -534,9 +610,39 @@ function destroyChart(key) {
 }
 
 function renderCharts(data) {
-  renderBarChart("chartConcluidos5Meses", data.concluidos_5_meses, "#59a869");
+  renderResumoDiaAnterior("chartResumoDiaAnterior", data.resumo_dia_anterior);
   renderBarChart("chartExecutadoPor", data.por_executadopor, "#f0913e");
   renderLineChart("chartDataConclusao", data.por_data_conclusao);
+}
+
+function renderResumoDiaAnterior(canvasId, dataset) {
+  const labelData = document.getElementById("resumoDiaAnteriorData");
+  if (labelData && dataset) {
+    labelData.textContent = formatDateBR(dataset.data);
+  }
+  if (!dataset) return;
+
+  destroyChart(canvasId);
+  const ctx = document.getElementById(canvasId).getContext("2d");
+  const cores = ["#59a869", "#6c5ce7", "#d9483a", "#8b96a5"]; // Concluídos, PCC, Cancelados, Total
+  state.charts[canvasId] = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: dataset.labels,
+      datasets: [{ data: dataset.data_valores, backgroundColor: cores, borderRadius: 4 }],
+    },
+    options: {
+      indexAxis: "y",
+      plugins: { legend: { display: false } },
+      layout: { padding: { right: 40 } },
+      scales: {
+        x: { beginAtZero: true, grace: "10%", ticks: { precision: 0, font: { size: 9 } } },
+        y: { ticks: { font: { size: 10 } } },
+      },
+      responsive: true,
+      maintainAspectRatio: false,
+    },
+  });
 }
 
 function renderBarChart(canvasId, dataset, color) {
@@ -550,8 +656,9 @@ function renderBarChart(canvasId, dataset, color) {
     },
     options: {
       plugins: { legend: { display: false } },
+      layout: { padding: { top: 24, left: 8, right: 8 } },
       scales: {
-        y: { beginAtZero: true, ticks: { precision: 0, font: { size: 8 } } },
+        y: { beginAtZero: true, grace: "10%", ticks: { precision: 0, font: { size: 8 } } },
         x: { ticks: { font: { size: 8 }, maxRotation: 60, minRotation: 45 } },
       },
       responsive: true,
@@ -586,8 +693,9 @@ function renderLineChart(canvasId, dataset) {
           },
         },
       },
+      layout: { padding: { top: 24, left: 16, right: 16 } },
       scales: {
-        y: { beginAtZero: true, ticks: { precision: 0, font: { size: 8 } } },
+        y: { beginAtZero: true, grace: "10%", ticks: { precision: 0, font: { size: 8 } } },
         x: {
           ticks: {
             font: { size: 8 },

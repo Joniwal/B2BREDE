@@ -111,6 +111,27 @@
 </div>
 
 <!-- ============================================================
+     MODAL: Confirmação de exclusão
+     ============================================================ -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-exclamation-triangle text-danger"></i> Excluir registro</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        Tem certeza que deseja excluir o registro <strong id="deleteItemLabel"></strong>? Esta ação não pode ser desfeita.
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="btnConfirmDelete"><i class="bi bi-trash"></i> Excluir</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
      MODAL: Itens agendados em uma data específica (via clique no gráfico)
      ============================================================ -->
 <div class="modal fade" id="dateItemsModal" tabindex="-1" aria-hidden="true">
@@ -127,7 +148,7 @@
               <tr>
                 <th>ID</th><th>Cliente</th><th>Endereço</th><th>Cidade</th><th>Tecnologia</th>
                 <th>VT</th><th>Status</th><th>Data Agend.</th><th>Data Conclusão</th>
-                <th>Observação</th><th>Draft</th><th>Rota</th>
+                <th>Tipo Cabo</th><th>Metragem</th><th>Draft</th><th>Rota</th>
               </tr>
             </thead>
             <tbody id="dateItemsBody"></tbody>
