@@ -36,11 +36,16 @@ assim:
    arquivo chamado `EXCEL_FILENAME` (padrão: `REDE_B2B.xlsx`) dentro das
    pastas do OneDrive sincronizadas nesta máquina (pessoal e/ou
    corporativo), inclusive dentro de subpastas.
+3. `EXCEL_SEARCH_ROOTS` é opcional. Deixe em branco para que o mesmo pacote
+   funcione em computadores com nomes de usuário e caminhos diferentes. Use-o
+   apenas quando precisar restringir a busca a uma biblioteca específica.
 
-A cada escrita (criar/atualizar/excluir), o arquivo inteiro é relido e
-regravado (de forma atômica, num arquivo temporário substituído no final),
-então evite editar o Excel manualmente enquanto a aplicação estiver com o
-navegador aberto e em uso simultâneo.
+Nas escritas (criar/atualizar/excluir), o sistema usa `openpyxl` para alterar
+somente os valores necessários dentro da Tabela estruturada indicada por
+`EXCEL_TABLE`. A tabela não é recriada: nome, estilo, cores e formatação são
+preservados. O salvamento usa um arquivo temporário no mesmo volume e só
+substitui o original depois da validação. Mantenha o arquivo fechado no Excel
+Desktop durante uma gravação para evitar bloqueio de concorrência.
 
 **Endpoints da API** (`api.py`, todas as respostas em JSON):
 
@@ -95,14 +100,22 @@ nesta máquina — não precisa saber o caminho completo.
 ```
 EXCEL_PATH=
 EXCEL_FILENAME=REDE_B2B.xlsx
+EXCEL_SEARCH_ROOTS=
 EXCEL_SHEET_NAME=REDEB2B
+EXCEL_TABLE=REDEB2B
 ```
+
+Com `EXCEL_SEARCH_ROOTS=` vazio, cada usuário procura no próprio OneDrive.
+Isso permite distribuir o mesmo `.exe` e o mesmo `.env` para computadores com
+caminhos diferentes, desde que a biblioteca compartilhada esteja sincronizada
+e o arquivo mantenha o nome `REDE_B2B.xlsx`.
 
 **Opção 2 — manual:** preencha `EXCEL_PATH` com o caminho completo. Quando
 preenchido, ele tem prioridade sobre a busca automática.
 ```
 EXCEL_PATH=C:\Users\PEGGY\OneDrive - Telefonica\PROJETO\REDE_B2B.xlsx
 EXCEL_SHEET_NAME=REDEB2B
+EXCEL_TABLE=REDEB2B
 ```
 
 Para conferir se o arquivo foi encontrado (e onde), acesse no navegador,
@@ -148,6 +161,9 @@ segurança):
 ```
 build_exe.bat
 ```
+Após clonar o repositório, esse script cria `venv`, instala as dependências e
+o PyInstaller e gera o pacote automaticamente. É necessário ter Python 3.10+
+no `PATH` e acesso à internet durante a primeira execução.
 
 **Opção B — comando direto** (funciona em qualquer ambiente, inclusive
 onde `.bat` é bloqueado — quem "executa" aqui é o `python.exe`, já
@@ -163,10 +179,13 @@ Qualquer uma das duas opções gera **um único arquivo** executável em:
 dist\REDEB2B.exe
 ```
 
+O `build_exe.bat` também cria `dist\.env` a partir do `.env.example` quando
+esse arquivo ainda não existir. Distribua os dois arquivos juntos.
+
 **Antes de usar/distribuir**, coloque na mesma pasta onde ficar o
 `REDEB2B.exe`:
 - o seu `.env` já configurado (copiado do `.env.example`, com o
-  `EXCEL_PATH`/`EXCEL_FILENAME` corretos) — coloque `FLASK_DEBUG=false`
+  `EXCEL_PATH`/`EXCEL_FILENAME` corretos) — mantenha `FLASK_DEBUG=false`
   nessa cópia, já que o modo debug do Flask não é recomendado para um
   executável empacotado.
 

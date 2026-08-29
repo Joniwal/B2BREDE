@@ -17,10 +17,13 @@ import re
 import tempfile
 import threading
 import unicodedata
-from datetime import datetime, timedelta
+from copy import copy
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
+from openpyxl import load_workbook
+from openpyxl.utils.cell import get_column_letter, range_boundaries
 
 logger = logging.getLogger("redeb2b.excel_client")
 
@@ -117,16 +120,25 @@ def _obter_pastas_onedrive() -> list[Path]:
     usuário."""
     candidatos: list[Path] = []
 
-    for variavel in ("OneDriveCommercial", "OneDriveConsumer", "OneDrive"):
-        valor = os.environ.get(variavel)
-        if valor:
-            caminho = Path(valor).expanduser()
-            if caminho.exists():
-                candidatos.append(caminho)
+    # Opcional: restringe a descoberta a uma biblioteca específica. Quando
+    # vazio, cada usuário usa os roots OneDrive registrados no próprio Windows.
+    roots_configurados = os.getenv("EXCEL_SEARCH_ROOTS", "").strip()
+    if roots_configurados:
+        for valor in roots_configurados.split(os.pathsep):
+            valor = valor.strip().strip('"')
+            if valor:
+                candidatos.append(Path(valor).expanduser())
+    else:
+        for variavel in ("OneDriveCommercial", "OneDriveConsumer", "OneDrive"):
+            valor = os.environ.get(variavel)
+            if valor:
+                caminho = Path(valor).expanduser()
+                if caminho.exists():
+                    candidatos.append(caminho)
 
-    for pasta in Path.home().glob("OneDrive*"):
-        if pasta.is_dir():
-            candidatos.append(pasta)
+        for pasta in Path.home().glob("OneDrive*"):
+            if pasta.is_dir():
+                candidatos.append(pasta)
 
     resultado: list[Path] = []
     vistos: set[str] = set()
@@ -835,6 +847,10 @@ class DataClient:
         df = df.fillna("")
         rows = df.to_dict(orient="records")
 
+        # Exclusões conservadoras deixam uma linha formatada vazia dentro da
+        # tabela. Ela não é um registro e não deve entrar em KPIs/gráficos.
+        rows = [row for row in rows if str(row.get("IDCLIENTE") or "").strip()]
+
         # Normaliza datas para ISO (yyyy-mm-dd), aceitando tanto o formato
         # ISO quanto dd/mm/aaaa (comum quando editado manualmente no Excel
         # em pt-BR). Isso garante que filtros, ordenação e exibição no
@@ -850,25 +866,190 @@ class DataClient:
     def _excel_write_all(self, rows):
         caminho = self._resolver_caminho_excel()
         caminho_path = Path(caminho)
-        df = pd.DataFrame(rows, columns=FIELDS)
         arquivo_temporario = None
+        workbook = None
 
         with EXCEL_LOCK:
             try:
-                # Escreve primeiro num arquivo temporário na mesma pasta e só
-                # substitui o arquivo real no final (os.replace é atômico).
-                # Isso evita deixar o Excel corrompido/pela metade caso algo
-                # falhe no meio da escrita (ex.: sincronização do OneDrive).
+                if caminho_path.with_name("~$" + caminho_path.name).exists():
+                    raise PermissionError("O arquivo está aberto no Excel Desktop.")
+
+                workbook = load_workbook(
+                    caminho_path,
+                    data_only=False,
+                    keep_links=True,
+                    rich_text=True,
+                )
+                if self.excel_sheet not in workbook.sheetnames:
+                    raise DataClientError(
+                        f"A aba '{self.excel_sheet}' não existe no arquivo.",
+                        status_code=409,
+                    )
+                worksheet = workbook[self.excel_sheet]
+
+                table_name = os.getenv("EXCEL_TABLE", "").strip()
+                if table_name:
+                    if table_name not in worksheet.tables:
+                        raise DataClientError(
+                            f"A tabela '{table_name}' não existe na aba '{self.excel_sheet}'.",
+                            status_code=409,
+                        )
+                    table = worksheet.tables[table_name]
+                elif len(worksheet.tables) == 1:
+                    table = next(iter(worksheet.tables.values()))
+                elif len(worksheet.tables) > 1:
+                    raise DataClientError(
+                        "Há várias tabelas na aba; configure EXCEL_TABLE no .env.",
+                        status_code=409,
+                    )
+                else:
+                    raise DataClientError(
+                        "A aba não possui uma Tabela do Excel. Converta o intervalo em tabela antes do CRUD.",
+                        status_code=409,
+                    )
+
+                left, header_row, right, table_bottom = range_boundaries(table.ref)
+                if table.totalsRowCount or table.totalsRowShown:
+                    raise DataClientError(
+                        "Tabela com linha de totais não pode ser ampliada automaticamente.",
+                        status_code=409,
+                    )
+
+                headers = {}
+                for column in range(left, right + 1):
+                    name = str(worksheet.cell(header_row, column).value or "").strip().upper()
+                    if name:
+                        headers[name] = column
+                missing = [field for field in FIELDS if field not in headers]
+                if missing:
+                    raise DataClientError(
+                        "Colunas ausentes no Excel: " + ", ".join(missing),
+                        status_code=409,
+                    )
+
+                existing = {}
+                for row_number in range(header_row + 1, table_bottom + 1):
+                    item_id = str(
+                        worksheet.cell(row_number, headers["IDCLIENTE"]).value or ""
+                    ).strip()
+                    if not item_id:
+                        continue
+                    if item_id in existing:
+                        raise DataClientError(
+                            f"IDCLIENTE duplicado no Excel: {item_id}",
+                            status_code=409,
+                        )
+                    existing[item_id] = row_number
+
+                desired = {}
+                for item in rows:
+                    item_id = str(item.get("IDCLIENTE") or "").strip()
+                    if not item_id:
+                        continue
+                    if item_id in desired:
+                        raise DataClientError(
+                            f"IDCLIENTE duplicado na gravação: {item_id}",
+                            status_code=409,
+                        )
+                    desired[item_id] = item
+
+                def excel_value(field, value):
+                    if value in (None, ""):
+                        return None
+                    if field in DATE_FIELDS:
+                        normalized = _parse_date(value)
+                        if normalized and re.fullmatch(r"\d{4}-\d{2}-\d{2}", normalized):
+                            return date.fromisoformat(normalized)
+                    return str(value)
+
+                def assign(row_number, field, value):
+                    cell = worksheet.cell(row_number, headers[field])
+                    if cell.data_type == "f":
+                        raise DataClientError(
+                            f"A célula {cell.coordinate} contém fórmula e não será sobrescrita.",
+                            status_code=409,
+                        )
+                    converted = excel_value(field, value)
+                    if str(cell.value or "") == str(converted or ""):
+                        return
+                    number_format = cell.number_format
+                    cell.value = converted
+                    if isinstance(converted, str):
+                        cell.data_type = "s"
+                    cell.number_format = (
+                        "yyyy-mm-dd"
+                        if isinstance(converted, date) and number_format == "General"
+                        else number_format
+                    )
+
+                # Exclusão: limpa valores, sem remover linha, estilo ou tabela.
+                for item_id in set(existing) - set(desired):
+                    row_number = existing[item_id]
+                    for field in FIELDS:
+                        assign(row_number, field, None)
+
+                # Atualização: somente valores que mudaram; estilos permanecem.
+                for item_id in set(existing) & set(desired):
+                    row_number = existing[item_id]
+                    for field in FIELDS:
+                        assign(row_number, field, desired[item_id].get(field, ""))
+
+                # Inclusão: reutiliza slots vazios ou amplia a MESMA tabela.
+                empty_rows = [
+                    row_number
+                    for row_number in range(header_row + 1, table_bottom + 1)
+                    if all(
+                        worksheet.cell(row_number, headers[field]).value in (None, "")
+                        for field in FIELDS
+                    )
+                ]
+                for item_id in sorted(set(desired) - set(existing)):
+                    if empty_rows:
+                        row_number = empty_rows.pop(0)
+                    else:
+                        row_number = table_bottom + 1
+                        # Pode existir uma linha parcialmente preparada logo
+                        # abaixo da tabela (por exemplo, N42="PENDENTE"). Não
+                        # a sobrescrevemos: a nova linha é criada depois do
+                        # último conteúdo e a mesma tabela passa a abranger o
+                        # intervalo intermediário. Assim nenhum dado manual é
+                        # perdido e o CRUD continua funcionando.
+                        while row_number <= worksheet.max_row and any(
+                            worksheet.cell(row_number, column).value not in (None, "")
+                            for column in range(left, right + 1)
+                        ):
+                            row_number += 1
+                        source_row = table_bottom
+                        for column in range(left, right + 1):
+                            worksheet.cell(row_number, column)._style = copy(
+                                worksheet.cell(source_row, column)._style
+                            )
+                        worksheet.row_dimensions[row_number].height = (
+                            worksheet.row_dimensions[source_row].height
+                        )
+                        table_bottom = row_number
+                        table.ref = (
+                            f"{get_column_letter(left)}{header_row}:"
+                            f"{get_column_letter(right)}{table_bottom}"
+                        )
+                        if table.autoFilter is not None:
+                            table.autoFilter.ref = table.ref
+                    for field in FIELDS:
+                        assign(row_number, field, desired[item_id].get(field, ""))
+
+                # Salva primeiro num temporário do mesmo volume e valida antes
+                # de substituir. Em nenhum momento a aba/tabela é recriada.
                 with tempfile.NamedTemporaryFile(
                     prefix="redeb2b_tmp_", suffix=".xlsx",
                     dir=str(caminho_path.parent), delete=False,
                 ) as tmp:
                     arquivo_temporario = tmp.name
-
-                with pd.ExcelWriter(arquivo_temporario, engine="openpyxl") as writer:
-                    df.to_excel(writer, sheet_name=self.excel_sheet, index=False)
-
+                workbook.save(arquivo_temporario)
+                validation = load_workbook(arquivo_temporario, read_only=True, data_only=False)
+                validation.close()
                 os.replace(arquivo_temporario, caminho)
+            except DataClientError:
+                raise
             except PermissionError as exc:
                 raise DataClientError(
                     "Não foi possível salvar o Excel — feche o arquivo no Excel, "
@@ -879,6 +1060,8 @@ class DataClient:
                 logger.exception("Erro escrevendo Excel")
                 raise DataClientError(f"Erro ao gravar o arquivo Excel: {exc}", status_code=500) from exc
             finally:
+                if workbook is not None:
+                    workbook.close()
                 if arquivo_temporario and os.path.exists(arquivo_temporario):
                     try:
                         os.remove(arquivo_temporario)
