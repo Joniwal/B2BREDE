@@ -13,7 +13,7 @@ import time
 import logging
 import threading
 import webbrowser
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 from dotenv import load_dotenv
 
 load_dotenv(override=True)
@@ -39,6 +39,17 @@ def _base_dir():
 BASE_DIR = _base_dir()
 
 
+def _agendar_encerramento(atraso=0.8):
+    """Encerra o processo depois que a resposta HTTP chegar ao navegador.
+
+    O executável usa um único processo (``use_reloader=False``), portanto o
+    encerramento também libera imediatamente a porta local da aplicação.
+    """
+    timer = threading.Timer(atraso, os._exit, args=(0,))
+    timer.daemon = True
+    timer.start()
+
+
 def create_app():
     app = Flask(
         __name__,
@@ -58,6 +69,17 @@ def create_app():
     @app.route("/dashboard")
     def analises():
         return render_template("analises.html")
+
+    @app.post("/api/shutdown")
+    def shutdown():
+        # Impede que outro computador da rede encerre a aplicação. O botão
+        # funciona no navegador aberto pelo próprio executável (localhost).
+        if request.remote_addr not in {"127.0.0.1", "::1"}:
+            return jsonify({"ok": False, "error": "Encerramento permitido apenas localmente."}), 403
+
+        logger.info("Encerramento solicitado pelo usuário local.")
+        _agendar_encerramento()
+        return jsonify({"ok": True, "message": "Aplicativo encerrado."})
 
     @app.errorhandler(404)
     def not_found(_error):
@@ -98,4 +120,6 @@ if __name__ == "__main__":
     if os.environ.get("WERKZEUG_RUN_MAIN") != "true":
         _abrir_navegador(f"http://localhost:{port}")
 
-    app.run(host="0.0.0.0", port=port, debug=debug)
+    # Sem reloader: mantém apenas um processo, inclusive ao rodar pelo Python,
+    # para que o botão "Encerrar aplicativo" finalize o servidor por completo.
+    app.run(host="0.0.0.0", port=port, debug=debug, use_reloader=False)

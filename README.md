@@ -111,11 +111,14 @@ caminhos diferentes, desde que a biblioteca compartilhada esteja sincronizada
 e o arquivo mantenha o nome `REDE_B2B.xlsx`.
 
 O gráfico **Resumo do Dia Útil Anterior** ignora sábados, domingos e feriados
-públicos brasileiros. Nesse resumo, **Concluídos** usa `DATACONCLUSAO`; **PCC**
-e **Cancelados** usam a data do registro de auditoria gravado em `USUARIO`
-(`NOME - dd/mm/aaaa, HH:MM`). Registros antigos em `USUARIO` sem uma data não
-entram na contagem diária. O estado e os feriados adicionais são configurados
-no mesmo `.env`:
+públicos brasileiros. Nesse resumo, **Concluídos** usa `DATACONCLUSAO`; **PCC**,
+**Cancelados**, **Agendados** e **Iniciados não concluídos** usam
+`DATAAGENDAMENTO`. O estado e os feriados adicionais são configurados no mesmo
+`.env`:
+
+O botão **Encerrar aplicativo**, disponível no painel e nas análises, finaliza
+o servidor local e libera a porta configurada. Por segurança, essa ação só é
+aceita quando solicitada pelo navegador do próprio computador (`localhost`).
 
 ```ini
 BUSINESS_HOLIDAY_SUBDIV=SP

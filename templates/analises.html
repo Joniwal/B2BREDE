@@ -24,9 +24,14 @@
       <i class="bi bi-bar-chart-line"></i> Dashboard
     </span>
   </div>
-  <a href="/" class="btn btn-outline-secondary btn-sm">
-    <i class="bi bi-arrow-left"></i> Voltar ao painel
-  </a>
+  <div class="d-flex align-items-center gap-2">
+    <a href="/" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i> Voltar ao painel
+    </a>
+    <button class="btn btn-outline-danger btn-sm btn-encerrar-app" type="button" title="Encerrar o aplicativo local">
+      <i class="bi bi-power"></i> Encerrar aplicativo
+    </button>
+  </div>
 </nav>
 
 <main class="p-3">
@@ -167,5 +172,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="{{ url_for('static', filename='js/analises.js') }}?v=rotulos-fixos-2"></script>
+<script src="{{ url_for('static', filename='js/app-controls.js') }}?v=encerrar-1"></script>
 </body>
 </html>

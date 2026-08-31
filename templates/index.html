@@ -45,6 +45,9 @@
     <button class="btn btn-outline-secondary btn-sm" id="btnAtualizar" title="Recarregar dados">
       <i class="bi bi-arrow-clockwise"></i> Atualizar
     </button>
+    <button class="btn btn-outline-danger btn-sm btn-encerrar-app" type="button" title="Encerrar o aplicativo local">
+      <i class="bi bi-power"></i> Encerrar aplicativo
+    </button>
     <button class="btn btn-accent btn-sm" id="btnNovoRegistro">
       <i class="bi bi-plus-lg"></i> Novo registro
     </button>
@@ -137,6 +140,7 @@
       <div class="col-12">
         <div class="chart-card">
           <h6>Resumo do Dia Útil Anterior — <span id="resumoDiaAnteriorData"></span></h6>
+          <small class="text-muted d-block mb-2">Concluídos por data de conclusão; demais status por data de agendamento.</small>
           <div class="chart-canvas-box" style="height:220px;"><canvas id="chartResumoDiaAnterior"></canvas></div>
         </div>
       </div>
@@ -218,6 +222,7 @@
 <!-- Chart.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <!-- Lógica da aplicação -->
-<script src="{{ url_for('static', filename='js/main.js') }}?v=rotulos-fixos-2"></script>
+<script src="{{ url_for('static', filename='js/main.js') }}?v=resumo-dia-util-3"></script>
+<script src="{{ url_for('static', filename='js/app-controls.js') }}?v=encerrar-1"></script>
 </body>
 </html>

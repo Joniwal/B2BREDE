@@ -4,7 +4,7 @@ import unittest
 from datetime import date, datetime
 from unittest.mock import patch
 
-from excel_client import DataClient, _dia_util_anterior, _parse_usuario_date
+from excel_client import DataClient, _dia_util_anterior
 
 
 CALENDAR_ENV = {
@@ -37,18 +37,6 @@ class BusinessDayTests(unittest.TestCase):
     def test_skips_custom_holiday(self):
         self.assertEqual(_dia_util_anterior(date(2026, 8, 31)), date(2026, 8, 27))
 
-    def test_extracts_audit_date_from_usuario(self):
-        self.assertEqual(
-            _parse_usuario_date("CINTIA - 28/08/2026, 18:49"),
-            "2026-08-28",
-        )
-        self.assertEqual(
-            _parse_usuario_date("JONI - atualização 2026-08-28 19:25"),
-            "2026-08-28",
-        )
-        self.assertIsNone(_parse_usuario_date("admin"))
-        self.assertIsNone(_parse_usuario_date("USUARIO - 31/02/2026, 10:00"))
-
     @patch("excel_client.datetime", MondayDateTime)
     @patch.dict(os.environ, CALENDAR_ENV)
     def test_dashboard_summary_uses_previous_business_day(self):
@@ -61,12 +49,20 @@ class BusinessDayTests(unittest.TestCase):
             },
             {
                 "STATUS": "PCC",
-                "USUARIO": "CINTIA - 28/08/2026, 18:49",
-                "DATAAGENDAMENTO": "2026-08-20",
+                "USUARIO": "CINTIA - 30/08/2026, 18:49",
+                "DATAAGENDAMENTO": "2026-08-28",
             },
             {
                 "STATUS": "CANCELADO",
-                "USUARIO": "JONI WILSON - 28/08/2026, 17:20",
+                "DATAAGENDAMENTO": "2026-08-28",
+            },
+            {
+                "STATUS": "AGENDADO",
+                "DATAAGENDAMENTO": "28/08/2026",
+            },
+            {
+                "STATUS": "INICIADO NAO CONCLUIDO",
+                "DATAAGENDAMENTO": "2026-08-28 09:00:00",
             },
             # Não conta: conclusão ocorreu em outra data, mesmo que a data de
             # agendamento seja o dia útil anterior.
@@ -75,19 +71,30 @@ class BusinessDayTests(unittest.TestCase):
                 "DATACONCLUSAO": "2026-08-27",
                 "DATAAGENDAMENTO": "2026-08-28",
             },
-            # Não conta: para PCC/Cancelado vale a data registrada em USUARIO.
+            # Não conta: para PCC e demais status vale DATAAGENDAMENTO, não a
+            # data de auditoria registrada em USUARIO.
             {
                 "STATUS": "PCC",
-                "USUARIO": "CINTIA - 30/08/2026, 10:00",
-                "DATAAGENDAMENTO": "2026-08-28",
+                "USUARIO": "CINTIA - 28/08/2026, 10:00",
+                "DATAAGENDAMENTO": "2026-08-30",
             },
-            {"STATUS": "CANCELADO", "USUARIO": "admin"},
         ]
 
         summary = client.dashboard_aggregates()["resumo_dia_anterior"]
 
         self.assertEqual(summary["data"], "2026-08-28")
-        self.assertEqual(summary["data_valores"], [1, 1, 1, 3])
+        self.assertEqual(
+            summary["labels"],
+            [
+                "Concluídos",
+                "PCC",
+                "Cancelados",
+                "Agendados",
+                "Iniciados não concluídos",
+                "Total",
+            ],
+        )
+        self.assertEqual(summary["data_valores"], [1, 1, 1, 1, 1, 5])
 
 
 if __name__ == "__main__":

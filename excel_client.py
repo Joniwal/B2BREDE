@@ -53,11 +53,6 @@ DATE_FIELDS = {"DATADISPARO", "DATAAGENDAMENTO", "DATACONCLUSAO"}
 # diretamente na planilha, com o Excel configurado em português.
 _ISO_DATE_RE = re.compile(r"^(\d{4})-(\d{1,2})-(\d{1,2})")
 _BR_DATE_RE = re.compile(r"^(\d{1,2})/(\d{1,2})/(\d{4})")
-# O campo USUARIO é um registro de auditoria no formato
-# "NOME - dd/mm/aaaa, HH:MM". Estes padrões procuram a data em qualquer
-# posição do texto, sem depender do tamanho do nome do usuário.
-_USUARIO_ISO_DATE_RE = re.compile(r"(?<!\d)(\d{4})-(\d{1,2})-(\d{1,2})(?!\d)")
-_USUARIO_BR_DATE_RE = re.compile(r"(?<!\d)(\d{1,2})/(\d{1,2})/(\d{4})(?!\d)")
 
 MESES_PT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
 
@@ -122,35 +117,6 @@ def _parse_date(value):
     # Formato não reconhecido — retorna como veio, truncado, para não quebrar
     # o restante do fluxo (mas não vai comparar corretamente em filtros de data).
     return s[:10]
-
-
-def _parse_usuario_date(value):
-    """Extrai a data do registro de auditoria armazenado em ``USUARIO``.
-
-    São aceitos ``NOME - dd/mm/aaaa, HH:MM`` e textos contendo uma data ISO.
-    Valores antigos sem data (por exemplo, apenas ``admin``) retornam ``None``
-    e, portanto, não entram no resumo diário.
-    """
-    if value is None or (isinstance(value, float) and pd.isna(value)):
-        return None
-
-    text = str(value).strip()
-    if not text:
-        return None
-
-    match = _USUARIO_ISO_DATE_RE.search(text)
-    if match:
-        year, month, day = (int(part) for part in match.groups())
-    else:
-        match = _USUARIO_BR_DATE_RE.search(text)
-        if not match:
-            return None
-        day, month, year = (int(part) for part in match.groups())
-
-    try:
-        return date(year, month, day).isoformat()
-    except ValueError:
-        return None
 
 
 def _dia_util_anterior(data_referencia=None):
@@ -709,35 +675,45 @@ class DataClient:
             1 for r in rows if _strip_accents(r.get("STATUS")) == _strip_accents("PENDENTE AGENDAMENTO")
         )
 
-        # Resumo do dia útil anterior: Concluídos, PCC, Cancelados e o total
-        # dos três — independente de qualquer filtro aplicado na tela.
-        # Concluídos são contabilizados pela DATACONCLUSAO; PCC e Cancelados,
-        # pela data do registro de auditoria armazenado em USUARIO.
+        # Resumo do dia útil anterior, independente dos filtros da tela.
+        # Concluídos são contabilizados pela DATACONCLUSAO. Todos os demais
+        # status usam DATAAGENDAMENTO, conforme a regra operacional do painel.
         # Lê a base sem filtro nenhum, de propósito.
         todos_os_registros = self._excel_read_all()
         dia_util_anterior = _dia_util_anterior(datetime.today().date()).isoformat()
 
-        def _total_status_por_data(nome_status, campo_data, parser=_parse_date):
+        def _total_status_por_data(nome_status, campo_data):
             return sum(
                 1 for r in todos_os_registros
-                if parser(r.get(campo_data)) == dia_util_anterior
+                if _parse_date(r.get(campo_data)) == dia_util_anterior
                 and _strip_accents(r.get("STATUS")) == _strip_accents(nome_status)
             )
 
         total_concluidos = _total_status_por_data("Concluído", "DATACONCLUSAO")
-        total_pcc = _total_status_por_data("PCC", "USUARIO", _parse_usuario_date)
-        total_cancelados = _total_status_por_data(
-            "Cancelado", "USUARIO", _parse_usuario_date
+        total_pcc = _total_status_por_data("PCC", "DATAAGENDAMENTO")
+        total_cancelados = _total_status_por_data("Cancelado", "DATAAGENDAMENTO")
+        total_agendados = _total_status_por_data("Agendado", "DATAAGENDAMENTO")
+        total_iniciados_nao_concluidos = _total_status_por_data(
+            "Iniciado não concluído", "DATAAGENDAMENTO"
         )
+        totais_status = [
+            total_concluidos,
+            total_pcc,
+            total_cancelados,
+            total_agendados,
+            total_iniciados_nao_concluidos,
+        ]
         resumo_dia_anterior = {
             "data": dia_util_anterior,
-            "labels": ["Concluídos", "PCC", "Cancelados", "Total"],
-            "data_valores": [
-                total_concluidos,
-                total_pcc,
-                total_cancelados,
-                total_concluidos + total_pcc + total_cancelados,
+            "labels": [
+                "Concluídos",
+                "PCC",
+                "Cancelados",
+                "Agendados",
+                "Iniciados não concluídos",
+                "Total",
             ],
+            "data_valores": [*totais_status, sum(totais_status)],
         }
 
         # "Por Executado Por": por padrão, mostra apenas o mês vigente

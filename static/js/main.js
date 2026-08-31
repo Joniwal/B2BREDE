@@ -624,7 +624,14 @@ function renderResumoDiaAnterior(canvasId, dataset) {
 
   destroyChart(canvasId);
   const ctx = document.getElementById(canvasId).getContext("2d");
-  const cores = ["#59a869", "#6c5ce7", "#d9483a", "#8b96a5"]; // Concluídos, PCC, Cancelados, Total
+  const cores = [
+    "#59a869", // Concluídos
+    "#6c5ce7", // PCC
+    "#d9483a", // Cancelados
+    "#3b82f6", // Agendados
+    "#f0913e", // Iniciados não concluídos
+    "#8b96a5", // Total
+  ];
   state.charts[canvasId] = new Chart(ctx, {
     type: "bar",
     data: {
