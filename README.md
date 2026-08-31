@@ -110,6 +110,25 @@ Isso permite distribuir o mesmo `.exe` e o mesmo `.env` para computadores com
 caminhos diferentes, desde que a biblioteca compartilhada esteja sincronizada
 e o arquivo mantenha o nome `REDE_B2B.xlsx`.
 
+O gráfico **Resumo do Dia Útil Anterior** ignora sábados, domingos e feriados
+públicos brasileiros. Nesse resumo, **Concluídos** usa `DATACONCLUSAO`; **PCC**
+e **Cancelados** usam a data do registro de auditoria gravado em `USUARIO`
+(`NOME - dd/mm/aaaa, HH:MM`). Registros antigos em `USUARIO` sem uma data não
+entram na contagem diária. O estado e os feriados adicionais são configurados
+no mesmo `.env`:
+
+```ini
+BUSINESS_HOLIDAY_SUBDIV=SP
+BUSINESS_HOLIDAY_INCLUDE_OPTIONAL=false
+BUSINESS_HOLIDAYS=
+```
+
+Use `BUSINESS_HOLIDAY_SUBDIV=São Paulo Capital` se o calendário aplicável for
+o da capital. Feriados municipais/corporativos adicionais podem ser informados
+em `BUSINESS_HOLIDAYS`, separados por vírgula ou ponto e vírgula, sempre no
+formato `YYYY-MM-DD`. Para considerar também pontos facultativos, altere
+`BUSINESS_HOLIDAY_INCLUDE_OPTIONAL` para `true`.
+
 **Opção 2 — manual:** preencha `EXCEL_PATH` com o caminho completo. Quando
 preenchido, ele tem prioridade sobre a busca automática.
 ```

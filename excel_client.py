@@ -22,6 +22,12 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
+try:
+    import holidays as holidays_lib
+    from holidays.constants import OPTIONAL, PUBLIC
+except ImportError:  # Permite uma mensagem controlada antes de atualizar dependências.
+    holidays_lib = None
+    OPTIONAL = PUBLIC = None
 from openpyxl import load_workbook
 from openpyxl.utils.cell import get_column_letter, range_boundaries
 
@@ -47,6 +53,11 @@ DATE_FIELDS = {"DATADISPARO", "DATAAGENDAMENTO", "DATACONCLUSAO"}
 # diretamente na planilha, com o Excel configurado em português.
 _ISO_DATE_RE = re.compile(r"^(\d{4})-(\d{1,2})-(\d{1,2})")
 _BR_DATE_RE = re.compile(r"^(\d{1,2})/(\d{1,2})/(\d{4})")
+# O campo USUARIO é um registro de auditoria no formato
+# "NOME - dd/mm/aaaa, HH:MM". Estes padrões procuram a data em qualquer
+# posição do texto, sem depender do tamanho do nome do usuário.
+_USUARIO_ISO_DATE_RE = re.compile(r"(?<!\d)(\d{4})-(\d{1,2})-(\d{1,2})(?!\d)")
+_USUARIO_BR_DATE_RE = re.compile(r"(?<!\d)(\d{1,2})/(\d{1,2})/(\d{4})(?!\d)")
 
 MESES_PT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
 
@@ -111,6 +122,100 @@ def _parse_date(value):
     # Formato não reconhecido — retorna como veio, truncado, para não quebrar
     # o restante do fluxo (mas não vai comparar corretamente em filtros de data).
     return s[:10]
+
+
+def _parse_usuario_date(value):
+    """Extrai a data do registro de auditoria armazenado em ``USUARIO``.
+
+    São aceitos ``NOME - dd/mm/aaaa, HH:MM`` e textos contendo uma data ISO.
+    Valores antigos sem data (por exemplo, apenas ``admin``) retornam ``None``
+    e, portanto, não entram no resumo diário.
+    """
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+
+    text = str(value).strip()
+    if not text:
+        return None
+
+    match = _USUARIO_ISO_DATE_RE.search(text)
+    if match:
+        year, month, day = (int(part) for part in match.groups())
+    else:
+        match = _USUARIO_BR_DATE_RE.search(text)
+        if not match:
+            return None
+        day, month, year = (int(part) for part in match.groups())
+
+    try:
+        return date(year, month, day).isoformat()
+    except ValueError:
+        return None
+
+
+def _dia_util_anterior(data_referencia=None):
+    """Retorna o dia útil imediatamente anterior à data informada.
+
+    Ignora sábados, domingos, feriados públicos do Brasil/estado configurado e
+    datas extras (municipais ou corporativas) declaradas no ``.env``.
+    """
+    referencia = data_referencia or date.today()
+    candidato = referencia - timedelta(days=1)
+
+    subdivisao = os.getenv("BUSINESS_HOLIDAY_SUBDIV", "SP").strip() or None
+    incluir_opcionais = os.getenv(
+        "BUSINESS_HOLIDAY_INCLUDE_OPTIONAL", "false"
+    ).strip().lower() in {"1", "true", "yes", "sim", "on"}
+
+    feriados = set()
+    if holidays_lib is None:
+        logger.warning(
+            "Dependência 'holidays' não instalada; considerando apenas fins de semana "
+            "e BUSINESS_HOLIDAYS. Execute: pip install -r requirements.txt"
+        )
+    else:
+        parametros = {
+            "subdiv": subdivisao,
+            "years": {referencia.year, candidato.year},
+            "language": "pt_BR",
+        }
+        if incluir_opcionais:
+            parametros["categories"] = (PUBLIC, OPTIONAL)
+        try:
+            feriados.update(holidays_lib.country_holidays("BR", **parametros).keys())
+        except (ValueError, NotImplementedError) as exc:
+            # Uma subdivisão inválida não derruba o dashboard: usa ao menos o
+            # calendário nacional e registra o problema no log.
+            logger.warning(
+                "BUSINESS_HOLIDAY_SUBDIV=%r inválido (%s); usando feriados nacionais.",
+                subdivisao,
+                exc,
+            )
+            parametros["subdiv"] = None
+            feriados.update(holidays_lib.country_holidays("BR", **parametros).keys())
+
+    datas_extras = os.getenv("BUSINESS_HOLIDAYS", "").strip()
+    if datas_extras:
+        for valor in re.split(r"[;,]", datas_extras):
+            valor = valor.strip()
+            if not valor:
+                continue
+            data_normalizada = _parse_date(valor)
+            try:
+                if not data_normalizada or not re.fullmatch(
+                    r"\d{4}-\d{2}-\d{2}", data_normalizada
+                ):
+                    raise ValueError
+                feriados.add(date.fromisoformat(data_normalizada))
+            except ValueError:
+                logger.warning(
+                    "Data inválida ignorada em BUSINESS_HOLIDAYS: %r. Use YYYY-MM-DD.",
+                    valor,
+                )
+
+    while candidato.weekday() >= 5 or candidato in feriados:
+        candidato -= timedelta(days=1)
+    return candidato
 
 
 def _obter_pastas_onedrive() -> list[Path]:
@@ -604,31 +709,34 @@ class DataClient:
             1 for r in rows if _strip_accents(r.get("STATUS")) == _strip_accents("PENDENTE AGENDAMENTO")
         )
 
-        # Resumo do dia anterior: Concluídos, PCC, Cancelados e o total dos
-        # três — sempre referente a ONTEM (independente de qualquer filtro
-        # aplicado na tela), usando a Data de Agendamento como referência.
+        # Resumo do dia útil anterior: Concluídos, PCC, Cancelados e o total
+        # dos três — independente de qualquer filtro aplicado na tela.
+        # Concluídos são contabilizados pela DATACONCLUSAO; PCC e Cancelados,
+        # pela data do registro de auditoria armazenado em USUARIO.
         # Lê a base sem filtro nenhum, de propósito.
         todos_os_registros = self._excel_read_all()
-        ontem = (datetime.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+        dia_util_anterior = _dia_util_anterior(datetime.today().date()).isoformat()
 
-        def _total_status_ontem(nome_status):
+        def _total_status_por_data(nome_status, campo_data, parser=_parse_date):
             return sum(
                 1 for r in todos_os_registros
-                if _parse_date(r.get("DATAAGENDAMENTO")) == ontem
+                if parser(r.get(campo_data)) == dia_util_anterior
                 and _strip_accents(r.get("STATUS")) == _strip_accents(nome_status)
             )
 
-        total_concluidos_ontem = _total_status_ontem("Concluído")
-        total_pcc_ontem = _total_status_ontem("PCC")
-        total_cancelados_ontem = _total_status_ontem("Cancelado")
+        total_concluidos = _total_status_por_data("Concluído", "DATACONCLUSAO")
+        total_pcc = _total_status_por_data("PCC", "USUARIO", _parse_usuario_date)
+        total_cancelados = _total_status_por_data(
+            "Cancelado", "USUARIO", _parse_usuario_date
+        )
         resumo_dia_anterior = {
-            "data": ontem,
+            "data": dia_util_anterior,
             "labels": ["Concluídos", "PCC", "Cancelados", "Total"],
             "data_valores": [
-                total_concluidos_ontem,
-                total_pcc_ontem,
-                total_cancelados_ontem,
-                total_concluidos_ontem + total_pcc_ontem + total_cancelados_ontem,
+                total_concluidos,
+                total_pcc,
+                total_cancelados,
+                total_concluidos + total_pcc + total_cancelados,
             ],
         }
 
