@@ -1,0 +1,2 @@
+# Somente para o exemplo Excel Desktop. Não necessário ao Flask/openpyxl.
+pywin32>=306,<400; sys_platform == "win32"
