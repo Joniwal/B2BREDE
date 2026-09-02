@@ -95,6 +95,96 @@ class AnalyticsTests(unittest.TestCase):
         self.assertNotIn("TIPOCABO", rows[0])
         self.assertNotIn("METRAGEM", rows[0])
 
+    @patch("excel_client.datetime", FixedDateTime)
+    def test_fechamento_geral_defaults_to_previous_day_and_groups_activity_status(self):
+        self.client._excel_read_all = lambda: [
+            {
+                "ATIVIDADE": "REPARO",
+                "STATUS": "CONCLUÍDO",
+                "DATACONCLUSAO": "2026-08-24",
+                "DATAAGENDAMENTO": "2026-08-01",
+            },
+            {
+                "ATIVIDADE": "ESTEIRA",
+                "STATUS": "PCC",
+                "DATAAGENDAMENTO": "2026-08-24",
+            },
+            {
+                # Não conta em 24/08: concluído usa DATACONCLUSAO.
+                "ATIVIDADE": "REPARO",
+                "STATUS": "CONCLUIDO",
+                "DATACONCLUSAO": "2026-08-23",
+                "DATAAGENDAMENTO": "2026-08-24",
+            },
+            {
+                # A linha Instalação foi removida do Fechamento Geral.
+                "ATIVIDADE": "INSTALAÇÃO",
+                "STATUS": "AGENDADO",
+                "DATAAGENDAMENTO": "2026-08-24",
+            },
+            {
+                # Status fora das sete colunas solicitadas não entra no total.
+                "ATIVIDADE": "REPARO",
+                "STATUS": "NOVO",
+                "DATAAGENDAMENTO": "2026-08-24",
+            },
+        ]
+
+        fechamento = self.client.analytics()["fechamento_geral"]
+        linhas = {linha["atividade"]: linha for linha in fechamento["linhas"]}
+        idx_concluido = fechamento["status"].index("CONCLUIDO")
+        idx_pcc = fechamento["status"].index("PCC")
+
+        self.assertEqual(fechamento["data_inicio"], "2026-08-24")
+        self.assertEqual(fechamento["data_fim"], "2026-08-24")
+        self.assertTrue(fechamento["usa_dia_anterior"])
+        self.assertEqual(
+            fechamento["status"],
+            [
+                "AGENDADO",
+                "CABO NA PORTA",
+                "CANCELADO",
+                "CONCLUIDO",
+                "INICIADO NAO CONCLUIDO",
+                "PCC",
+                "SEM ACAO OSP",
+            ],
+        )
+        self.assertNotIn("INSTALAÇÃO", linhas)
+        self.assertEqual(linhas["REPARO"]["valores"][idx_concluido], 1)
+        self.assertEqual(linhas["ESTEIRA"]["valores"][idx_pcc], 1)
+        self.assertEqual(fechamento["total_geral"], 2)
+
+    def test_fechamento_geral_uses_exact_selected_date(self):
+        self.client._excel_read_all = lambda: [
+            {
+                "ATIVIDADE": "REPARO",
+                "STATUS": "CONCLUIDO",
+                "DATACONCLUSAO": "2026-08-23",
+                "DATAAGENDAMENTO": "2026-08-24",
+            },
+            {
+                "ATIVIDADE": "ESTEIRA",
+                "STATUS": "AGENDADO",
+                "DATAAGENDAMENTO": "2026-08-23",
+            },
+            {
+                "ATIVIDADE": "ESTEIRA",
+                "STATUS": "PCC",
+                "DATAAGENDAMENTO": "2026-08-24",
+            },
+        ]
+
+        fechamento = self.client.analytics(
+            data_inicio="2026-08-23",
+            data_fim="2026-08-23",
+        )["fechamento_geral"]
+
+        self.assertFalse(fechamento["usa_dia_anterior"])
+        self.assertEqual(fechamento["data_inicio"], "2026-08-23")
+        self.assertEqual(fechamento["data_fim"], "2026-08-23")
+        self.assertEqual(fechamento["total_geral"], 2)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -12,7 +12,7 @@
 
 <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-<link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet">
+<link href="{{ url_for('static', filename='css/styles.css') }}?v=fechamento-geral-1" rel="stylesheet">
 </head>
 <body>
 
@@ -104,6 +104,26 @@
     </div>
   </div>
 
+  <!-- FECHAMENTO GERAL: ATIVIDADE X STATUS -->
+  <section class="fechamento-card mb-3" aria-labelledby="fechamentoGeralTitulo">
+    <div class="fechamento-card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+      <h6 id="fechamentoGeralTitulo" class="mb-0">
+        <i class="bi bi-table me-1"></i> Fechamento Geral
+      </h6>
+      <span id="fechamentoGeralPeriodo" class="fechamento-periodo">Carregando...</span>
+    </div>
+    <div class="table-responsive fechamento-table-wrapper">
+      <table class="table fechamento-table mb-0" aria-describedby="fechamentoGeralPeriodo">
+        <thead id="fechamentoGeralHead">
+          <tr><th scope="col">Atividade</th><th scope="col">Total</th></tr>
+        </thead>
+        <tbody id="fechamentoGeralBody">
+          <tr><td colspan="2" class="text-center text-muted py-3">Carregando fechamento...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
   <!-- GRÁFICOS -->
   <div class="row g-3 mb-3">
     <div class="col-lg-4">
@@ -171,7 +191,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="{{ url_for('static', filename='js/analises.js') }}?v=rotulos-fixos-2"></script>
+<script src="{{ url_for('static', filename='js/analises.js') }}?v=fechamento-geral-1"></script>
 <script src="{{ url_for('static', filename='js/app-controls.js') }}?v=encerrar-1"></script>
 </body>
 </html>

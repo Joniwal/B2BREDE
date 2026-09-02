@@ -116,6 +116,15 @@ públicos brasileiros. Nesse resumo, **Concluídos** usa `DATACONCLUSAO`; **PCC*
 `DATAAGENDAMENTO`. O estado e os feriados adicionais são configurados no mesmo
 `.env`:
 
+Na aba **Dashboard**, o quadro **Fechamento Geral** mostra atividades nas
+linhas, status nas colunas e os respectivos totais. Sem filtro de período, ele
+usa o dia anterior. Ao aplicar data, intervalo, mês ou ano no Dashboard, o
+quadro passa a usar exatamente o período selecionado. Assim como no resumo
+diário, `CONCLUIDO` é associado a `DATACONCLUSAO`; todos os demais status são
+associados a `DATAAGENDAMENTO`. O quadro exibe somente `AGENDADO`, `CABO NA
+PORTA`, `CANCELADO`, `CONCLUIDO`, `INICIADO NAO CONCLUIDO`, `PCC` e `SEM ACAO
+OSP`; a atividade `INSTALAÇÃO` não é exibida nem incluída nos totais.
+
 O botão **Encerrar aplicativo**, disponível no painel e nas análises, finaliza
 o servidor local e libera a porta configurada. Por segurança, essa ação só é
 aceita quando solicitada pelo navegador do próprio computador (`localhost`).

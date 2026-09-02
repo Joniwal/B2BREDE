@@ -162,6 +162,89 @@ body {
 .kpi-grey   { background-color: #8b96a5; }
 
 /* ---------------------------------------------------------------------- */
+/* Fechamento Geral — matriz Atividade x Status                            */
+/* ---------------------------------------------------------------------- */
+.fechamento-card {
+  background: #fff;
+  border-radius: var(--card-radius);
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  overflow: hidden;
+}
+.fechamento-card-header {
+  padding: 12px 14px;
+  border-bottom: 0.5px solid var(--border-input);
+}
+.fechamento-card-header h6 {
+  color: #555;
+  font-size: 8pt;
+  font-weight: 600;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+}
+.fechamento-periodo {
+  color: var(--accent-dark);
+  font-size: 7.5pt;
+  font-weight: 600;
+}
+.fechamento-table-wrapper {
+  width: 100%;
+}
+.fechamento-table {
+  min-width: 900px;
+  font-size: 7pt;
+  text-align: center;
+  vertical-align: middle;
+}
+.fechamento-table th,
+.fechamento-table td {
+  border: 0.5px solid var(--border-input);
+  padding: 6px 8px;
+  white-space: nowrap;
+}
+.fechamento-table thead th {
+  background: #f9e9e7;
+  color: var(--accent-dark);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.fechamento-table tbody tr:hover > * {
+  background-color: #f8fafc;
+}
+.fechamento-table .fechamento-atividade {
+  position: sticky;
+  left: 0;
+  min-width: 145px;
+  text-align: left;
+  z-index: 1;
+  background: #fff;
+  color: #4e5968;
+  font-weight: 600;
+}
+.fechamento-table thead .fechamento-atividade {
+  z-index: 2;
+  background: #f9e9e7;
+  color: var(--accent-dark);
+}
+.fechamento-table .fechamento-total {
+  background: #f2f4f6;
+  color: #333;
+  font-weight: 700;
+}
+.fechamento-table .fechamento-maior {
+  background: #fff0d9;
+  color: #8a4b00;
+  font-weight: 700;
+}
+.fechamento-table .fechamento-total-row > * {
+  background: #e8ecef;
+  color: #333;
+  font-weight: 700;
+}
+.fechamento-table .fechamento-total-row .fechamento-atividade {
+  background: #e8ecef;
+}
+
+/* ---------------------------------------------------------------------- */
 /* Charts                                                                  */
 /* ---------------------------------------------------------------------- */
 .chart-card {

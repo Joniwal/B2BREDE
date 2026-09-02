@@ -17,6 +17,7 @@ import re
 import tempfile
 import threading
 import unicodedata
+from calendar import monthrange
 from copy import copy
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -55,6 +56,26 @@ _ISO_DATE_RE = re.compile(r"^(\d{4})-(\d{1,2})-(\d{1,2})")
 _BR_DATE_RE = re.compile(r"^(\d{1,2})/(\d{1,2})/(\d{4})")
 
 MESES_PT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+
+# Ordem estável das linhas e colunas do quadro "Fechamento Geral". Atividades
+# adicionais aparecem depois destas, exceto INSTALAÇÃO. Os status são uma
+# lista fechada para manter somente as colunas solicitadas no Dashboard.
+ATIVIDADES_FECHAMENTO_ORDEM = [
+    "AÇÃO DE QUALIDADE",
+    "ESTEIRA",
+    "MIGRACAO / DESLIGUE",
+    "REPARO",
+]
+
+STATUS_FECHAMENTO_ORDEM = [
+    "AGENDADO",
+    "CABO NA PORTA",
+    "CANCELADO",
+    "CONCLUIDO",
+    "INICIADO NAO CONCLUIDO",
+    "PCC",
+    "SEM ACAO OSP",
+]
 
 
 def _parse_metragem(valor) -> float:
@@ -396,13 +417,134 @@ class DataClient:
 
         meses_alvo, janela_ini, janela_fim = self._resolver_janela_analises(ano, mes, data_inicio, data_fim)
 
+        # O Fechamento Geral tem um fallback próprio: sem nenhum filtro de
+        # período, mostra somente o dia anterior. Quando o usuário escolhe
+        # intervalo, mês ou ano, o quadro usa exatamente esse período.
+        if data_inicio or data_fim:
+            fechamento_inicio = data_inicio or data_fim
+            fechamento_fim = data_fim or data_inicio
+            if fechamento_inicio > fechamento_fim:
+                fechamento_inicio, fechamento_fim = fechamento_fim, fechamento_inicio
+            fechamento_fallback = False
+        elif ano and mes:
+            ano_fechamento, mes_fechamento = int(ano), int(mes)
+            fechamento_inicio = date(ano_fechamento, mes_fechamento, 1).isoformat()
+            fechamento_fim = date(
+                ano_fechamento,
+                mes_fechamento,
+                monthrange(ano_fechamento, mes_fechamento)[1],
+            ).isoformat()
+            fechamento_fallback = False
+        elif ano:
+            ano_fechamento = int(ano)
+            fechamento_inicio = date(ano_fechamento, 1, 1).isoformat()
+            fechamento_fim = date(ano_fechamento, 12, 31).isoformat()
+            fechamento_fallback = False
+        else:
+            dia_anterior = datetime.today().date() - timedelta(days=1)
+            fechamento_inicio = fechamento_fim = dia_anterior.isoformat()
+            fechamento_fallback = True
+
+        def data_iso_valida(valor):
+            normalizada = _parse_date(valor)
+            if not normalizada or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", normalizada):
+                return None
+            try:
+                date.fromisoformat(normalizada)
+            except ValueError:
+                return None
+            return normalizada
+
+        # Para CONCLUÍDO, a data operacional é DATACONCLUSAO. Para todos os
+        # demais status, é DATAAGENDAMENTO, igual ao resumo diário existente.
+        status_permitidos = {
+            _strip_accents(nome) for nome in STATUS_FECHAMENTO_ORDEM
+        }
+        registros_fechamento = []
+        for row in rows:
+            status_original = str(row.get("STATUS") or "").strip() or "Não informado"
+            status_chave = _strip_accents(status_original)
+            atividade_chave = _strip_accents(
+                str(row.get("ATIVIDADE") or "").strip() or "Não informado"
+            )
+            if status_chave not in status_permitidos or atividade_chave == "instalacao":
+                continue
+            campo_data = (
+                "DATACONCLUSAO"
+                if status_chave == _strip_accents("CONCLUIDO")
+                else "DATAAGENDAMENTO"
+            )
+            data_registro = data_iso_valida(row.get(campo_data))
+            if not data_registro or not (fechamento_inicio <= data_registro <= fechamento_fim):
+                continue
+            registros_fechamento.append(row)
+
+        atividades_por_chave = {
+            _strip_accents(nome): nome for nome in ATIVIDADES_FECHAMENTO_ORDEM
+        }
+        status_por_chave = {
+            _strip_accents(nome): nome for nome in STATUS_FECHAMENTO_ORDEM
+        }
+        for row in registros_fechamento:
+            atividade = str(row.get("ATIVIDADE") or "").strip() or "Não informado"
+            atividades_por_chave.setdefault(_strip_accents(atividade), atividade)
+
+        atividades_base = [_strip_accents(nome) for nome in ATIVIDADES_FECHAMENTO_ORDEM]
+        status_base = [_strip_accents(nome) for nome in STATUS_FECHAMENTO_ORDEM]
+        atividades_extras = sorted(
+            (chave for chave in atividades_por_chave if chave not in atividades_base),
+            key=lambda chave: atividades_por_chave[chave].casefold(),
+        )
+        atividades_chaves = [*atividades_base, *atividades_extras]
+        status_chaves = status_base
+
+        contagem_fechamento = {
+            atividade: {status: 0 for status in status_chaves}
+            for atividade in atividades_chaves
+        }
+        for row in registros_fechamento:
+            atividade = _strip_accents(
+                str(row.get("ATIVIDADE") or "").strip() or "Não informado"
+            )
+            status = _strip_accents(
+                str(row.get("STATUS") or "").strip() or "Não informado"
+            )
+            contagem_fechamento[atividade][status] += 1
+
+        linhas_fechamento = []
+        for atividade in atividades_chaves:
+            valores = [contagem_fechamento[atividade][status] for status in status_chaves]
+            linhas_fechamento.append({
+                "atividade": atividades_por_chave[atividade],
+                "valores": valores,
+                "total": sum(valores),
+            })
+
+        totais_status_fechamento = [
+            sum(contagem_fechamento[atividade][status] for atividade in atividades_chaves)
+            for status in status_chaves
+        ]
+        fechamento_geral = {
+            "data_inicio": fechamento_inicio,
+            "data_fim": fechamento_fim,
+            "usa_dia_anterior": fechamento_fallback,
+            "status": [status_por_chave[status] for status in status_chaves],
+            "linhas": linhas_fechamento,
+            "totais_status": totais_status_fechamento,
+            "total_geral": sum(totais_status_fechamento),
+        }
+
         labels_meses = [f"{MESES_PT[m - 1]}/{str(a)[2:]}" for a, m in meses_alvo]
 
         def filtrar_por_mes(base_rows, campo_data, ano_alvo, mes_alvo):
             resultado = []
             for r in base_rows:
                 d = _parse_date(r.get(campo_data))
-                if not d:
+                if not d or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", d):
+                    continue
+                try:
+                    date.fromisoformat(d)
+                except ValueError:
                     continue
                 ano_r, mes_r, _dia_r = d.split("-")
                 if int(ano_r) != ano_alvo or int(mes_r) != mes_alvo:
@@ -500,6 +642,7 @@ class DataClient:
         return {
             "meses_labels": labels_meses,
             "total_registros_periodo": len(rows_na_janela),
+            "fechamento_geral": fechamento_geral,
             "concluidos_timeline": concluidos_timeline,
             "metragem_por_mes_tecnologia": metragem_por_mes_tecnologia,
             "por_mes_tipocabo": por_mes_tipocabo,
@@ -522,7 +665,11 @@ class DataClient:
             resultado = []
             for r in base_rows:
                 d = _parse_date(r.get(campo_data))
-                if not d:
+                if not d or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", d):
+                    continue
+                try:
+                    date.fromisoformat(d)
+                except ValueError:
                     continue
                 ano_r, mes_r, _dia_r = d.split("-")
                 if int(ano_r) != ano_alvo or int(mes_r) != mes_alvo:
@@ -658,7 +805,11 @@ class DataClient:
 
             def _no_mes_atual(row):
                 d = _parse_date(row.get("DATACONCLUSAO"))
-                if not d:
+                if not d or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", d):
+                    return False
+                try:
+                    date.fromisoformat(d)
+                except ValueError:
                     return False
                 ano, mes, _dia = d.split("-")
                 return int(ano) == ano_atual and int(mes) == mes_atual
@@ -727,7 +878,11 @@ class DataClient:
 
             def _no_mes_atual_agendamento(row):
                 d = _parse_date(row.get("DATAAGENDAMENTO"))
-                if not d:
+                if not d or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", d):
+                    return False
+                try:
+                    date.fromisoformat(d)
+                except ValueError:
                     return False
                 ano, mes, _dia = d.split("-")
                 return int(ano) == ano_atual and int(mes) == mes_atual

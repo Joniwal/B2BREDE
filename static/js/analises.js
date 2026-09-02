@@ -203,12 +203,73 @@ function renderizarAnalise(data) {
     ? `${clienteTop.cliente} (${clienteTop.total})`
     : "—";
 
+  renderizarFechamentoGeral(data.fechamento_geral);
   renderLineChartAnalise("chartConcluidosTimeline", data.concluidos_timeline, "#59a869");
   renderGroupedBarChart("chartMetragemMesTecnologia", data.metragem_por_mes_tecnologia);
   renderGroupedBarChart("chartTipoCaboPorMes", data.por_mes_tipocabo);
   renderBarChartAnalise("chartExecutadoPorAnalise", data.por_executado_por, "#f0913e");
   renderBarChartAnalise("chartStatusAnalise", data.por_status, "#6c5ce7");
   renderBarChartAnalise("chartDraftsPorMes", data.drafts_por_mes, "#3d95c4");
+}
+
+function formatarDataIso(iso) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || "")) return iso || "—";
+  const [ano, mes, dia] = iso.split("-");
+  return `${dia}/${mes}/${ano}`;
+}
+
+function renderizarFechamentoGeral(fechamento) {
+  const periodo = document.getElementById("fechamentoGeralPeriodo");
+  const thead = document.getElementById("fechamentoGeralHead");
+  const tbody = document.getElementById("fechamentoGeralBody");
+
+  if (!fechamento || !Array.isArray(fechamento.status) || !Array.isArray(fechamento.linhas)) {
+    periodo.textContent = "Período indisponível";
+    tbody.innerHTML = '<tr><td colspan="2" class="text-center text-muted py-3">Sem dados para exibir.</td></tr>';
+    return;
+  }
+
+  const inicio = formatarDataIso(fechamento.data_inicio);
+  const fim = formatarDataIso(fechamento.data_fim);
+  if (fechamento.data_inicio === fechamento.data_fim) {
+    periodo.textContent = `${fechamento.usa_dia_anterior ? "Dia anterior" : "Data selecionada"}: ${inicio}`;
+  } else {
+    periodo.textContent = `Período selecionado: ${inicio} a ${fim}`;
+  }
+
+  thead.innerHTML = `
+    <tr>
+      <th scope="col" class="fechamento-atividade">Atividade</th>
+      ${fechamento.status.map((status) => `<th scope="col">${escapeHtml(status)}</th>`).join("")}
+      <th scope="col" class="fechamento-total">Total</th>
+    </tr>`;
+
+  const maiorValor = Math.max(
+    0,
+    ...fechamento.linhas.flatMap((linha) =>
+      (linha.valores || []).map((valor) => Number(valor) || 0)
+    )
+  );
+
+  const linhasHtml = fechamento.linhas.map((linha) => {
+    const valores = (linha.valores || []).map((valor) => Number(valor) || 0);
+    return `
+      <tr>
+        <th scope="row" class="fechamento-atividade">${escapeHtml(linha.atividade || "Não informado")}</th>
+        ${valores.map((valor) => `
+          <td class="${maiorValor > 0 && valor === maiorValor ? "fechamento-maior" : ""}">${valor}</td>
+        `).join("")}
+        <td class="fechamento-total">${Number(linha.total) || 0}</td>
+      </tr>`;
+  }).join("");
+
+  const totais = (fechamento.totais_status || []).map((valor) => Number(valor) || 0);
+  tbody.innerHTML = `${linhasHtml}
+    <tr class="fechamento-total-row">
+      <th scope="row" class="fechamento-atividade">TOTAL</th>
+      ${totais.map((valor) => `<td>${valor}</td>`).join("")}
+      <td class="fechamento-total">${Number(fechamento.total_geral) || 0}</td>
+    </tr>`;
 }
 
 function destruirGrafico(canvasId) {
