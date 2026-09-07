@@ -59,6 +59,7 @@ Desktop durante uma gravação para evitar bloqueio de concorrência.
 | GET | `/api/dashboard` | Agregações para KPIs e gráficos (Chart.js) |
 | GET | `/api/items-by-date?data=YYYY-MM-DD` | Registros agendados em uma data (usado ao clicar no gráfico de linha) |
 | GET | `/api/export` | Baixa em `.xlsx` os registros que atendem aos mesmos filtros/ordenação de `/api/items`, sem paginação (todos os que passam pelo filtro) |
+| GET | `/api/analytics/fechamento-geral/export` | Baixa uma cópia da planilha-base somente com os registros do Fechamento Geral, preservando a Tabela e sua formatação |
 | GET | `/api/excel-status` | Diagnóstico: mostra se o Excel foi localizado e em qual caminho (útil para depurar problemas de OneDrive) |
 
 ---
@@ -124,6 +125,12 @@ diário, `CONCLUIDO` é associado a `DATACONCLUSAO`; todos os demais status são
 associados a `DATAAGENDAMENTO`. O quadro exibe somente `AGENDADO`, `CABO NA
 PORTA`, `CANCELADO`, `CONCLUIDO`, `INICIADO NAO CONCLUIDO`, `PCC` e `SEM ACAO
 OSP`; a atividade `INSTALAÇÃO` não é exibida nem incluída nos totais.
+
+O botão **Baixar Excel** do Fechamento Geral usa exatamente essa mesma seleção.
+O arquivo é gerado a partir de uma cópia em memória da planilha-base: mantém
+abas, larguras, congelamento de painéis, nome e estilo da Tabela estruturada,
+mas deixa nessa Tabela apenas os registros contabilizados no quadro. A base
+original do OneDrive não é modificada durante o download.
 
 O botão **Encerrar aplicativo**, disponível no painel e nas análises, finaliza
 o servidor local e libera a porta configurada. Por segurança, essa ação só é
