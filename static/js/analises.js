@@ -116,6 +116,51 @@ function bindEventosAnalise() {
       window.open(`/api/analytics/export?${params.toString()}`, "_blank");
     });
   });
+
+  document.getElementById("btnExportarFechamento")
+    ?.addEventListener("click", baixarExcelFechamentoGeral);
+}
+
+async function baixarExcelFechamentoGeral() {
+  const button = document.getElementById("btnExportarFechamento");
+  const params = coletarFiltrosPeriodo();
+  const originalHtml = button.innerHTML;
+  button.disabled = true;
+  button.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Gerando...';
+
+  try {
+    const resp = await fetch(`/api/analytics/fechamento-geral/export?${params.toString()}`);
+    if (!resp.ok) {
+      let message = `Erro HTTP ${resp.status}`;
+      try {
+        const payload = await resp.json();
+        message = payload.error || message;
+      } catch (_err) {
+        // A resposta pode não ser JSON se o servidor for interrompido.
+      }
+      throw new Error(message);
+    }
+
+    const blob = await resp.blob();
+    const disposition = resp.headers.get("Content-Disposition") || "";
+    const filenameMatch = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i);
+    const filename = filenameMatch
+      ? decodeURIComponent(filenameMatch[1])
+      : "REDEB2B_fechamento_geral.xlsx";
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    showAlert(err.message || "Erro ao baixar o Excel do Fechamento Geral.");
+  } finally {
+    button.disabled = false;
+    button.innerHTML = originalHtml;
+  }
 }
 
 function coletarFiltrosPeriodo() {
