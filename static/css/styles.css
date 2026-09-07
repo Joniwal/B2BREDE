@@ -186,6 +186,11 @@ body {
   font-size: 7.5pt;
   font-weight: 600;
 }
+.fechamento-export-button {
+  font-size: 7.5pt;
+  font-weight: 600;
+  white-space: nowrap;
+}
 .fechamento-table-wrapper {
   width: 100%;
 }
