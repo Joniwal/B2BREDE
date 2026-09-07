@@ -202,6 +202,46 @@ def export_analytics():
         return jsonify({"ok": False, "error": "Erro interno ao gerar a exportação."}), 500
 
 
+@api_bp.route("/analytics/fechamento-geral/export", methods=["GET"])
+def export_fechamento_geral():
+    """Baixa uma cópia da planilha-base contendo somente os registros do
+    Fechamento Geral e preservando a Tabela estruturada e sua formatação."""
+    try:
+        ano_raw = request.args.get("ano")
+        mes_raw = request.args.get("mes")
+        ano = int(ano_raw) if ano_raw else None
+        mes = int(mes_raw) if mes_raw else None
+        data_inicio = request.args.get("dataInicio") or None
+        data_fim = request.args.get("dataFim") or None
+
+        buffer, metadata = data_client.export_fechamento_geral(
+            ano=ano,
+            mes=mes,
+            data_inicio=data_inicio,
+            data_fim=data_fim,
+        )
+        inicio = metadata["data_inicio"].replace("-", "")
+        fim = metadata["data_fim"].replace("-", "")
+        periodo = inicio if inicio == fim else f"{inicio}_a_{fim}"
+        filename = f"REDEB2B_fechamento_geral_{periodo}.xlsx"
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=filename,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+    except DataClientError as exc:
+        return _error_response(exc)
+    except ValueError:
+        return jsonify({"ok": False, "error": "Parâmetros 'ano'/'mes' inválidos."}), 400
+    except Exception:  # noqa: BLE001
+        logger.exception("Erro inesperado ao exportar o Fechamento Geral")
+        return jsonify({
+            "ok": False,
+            "error": "Erro interno ao gerar o Excel do Fechamento Geral.",
+        }), 500
+
+
 @api_bp.route("/excel-status", methods=["GET"])
 def excel_status():
     """Diagnóstico rápido: mostra se o Excel foi localizado e em qual
