@@ -12,6 +12,7 @@ Expõe a classe `DataClient` com uma interface de CRUD:
 """
 
 import os
+import io
 import logging
 import re
 import tempfile
@@ -30,6 +31,7 @@ except ImportError:  # Permite uma mensagem controlada antes de atualizar depend
     holidays_lib = None
     OPTIONAL = PUBLIC = None
 from openpyxl import load_workbook
+from openpyxl.formula.translate import Translator
 from openpyxl.utils.cell import get_column_letter, range_boundaries
 
 logger = logging.getLogger("redeb2b.excel_client")
@@ -400,6 +402,81 @@ class DataClient:
             return [(int(ano), m) for m in range(1, 13)], None, None
         return self._ultimos_n_meses(6), None, None
 
+    @staticmethod
+    def _data_iso_valida(valor):
+        """Normaliza e valida uma data, retornando ``YYYY-MM-DD`` ou None."""
+        normalizada = _parse_date(valor)
+        if not normalizada or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", normalizada):
+            return None
+        try:
+            date.fromisoformat(normalizada)
+        except ValueError:
+            return None
+        return normalizada
+
+    def _resolver_periodo_fechamento(self, ano, mes, data_inicio, data_fim):
+        """Resolve o período do Fechamento Geral.
+
+        O intervalo explícito tem prioridade; depois vêm ano/mês e ano. Sem
+        filtro, o quadro e a exportação usam o dia-calendário anterior.
+        """
+        if data_inicio or data_fim:
+            inicio = self._data_iso_valida(data_inicio or data_fim)
+            fim = self._data_iso_valida(data_fim or data_inicio)
+            if not inicio or not fim:
+                raise DataClientError(
+                    "As datas do Fechamento Geral devem estar no formato YYYY-MM-DD."
+                )
+            if inicio > fim:
+                inicio, fim = fim, inicio
+            return inicio, fim, False
+
+        if ano and mes:
+            ano_ref, mes_ref = int(ano), int(mes)
+            inicio = date(ano_ref, mes_ref, 1)
+            fim = date(ano_ref, mes_ref, monthrange(ano_ref, mes_ref)[1])
+            return inicio.isoformat(), fim.isoformat(), False
+
+        if ano:
+            ano_ref = int(ano)
+            return (
+                date(ano_ref, 1, 1).isoformat(),
+                date(ano_ref, 12, 31).isoformat(),
+                False,
+            )
+
+        dia_anterior = datetime.today().date() - timedelta(days=1)
+        data_padrao = dia_anterior.isoformat()
+        return data_padrao, data_padrao, True
+
+    def _selecionar_registros_fechamento(
+        self, rows, ano=None, mes=None, data_inicio=None, data_fim=None
+    ):
+        """Seleciona exatamente os registros que compõem o Fechamento Geral.
+
+        Esta é a única regra de seleção usada tanto pelo quadro do Dashboard
+        quanto pelo arquivo Excel, evitando divergências entre tela e download.
+        """
+        inicio, fim, usa_dia_anterior = self._resolver_periodo_fechamento(
+            ano, mes, data_inicio, data_fim
+        )
+        status_permitidos = {_strip_accents(nome) for nome in STATUS_FECHAMENTO_ORDEM}
+        concluido = _strip_accents("CONCLUIDO")
+        selecionados = []
+
+        for row in rows:
+            status_chave = _strip_accents(str(row.get("STATUS") or "").strip())
+            atividade_chave = _strip_accents(str(row.get("ATIVIDADE") or "").strip())
+            if status_chave not in status_permitidos or atividade_chave == "instalacao":
+                continue
+
+            campo_data = "DATACONCLUSAO" if status_chave == concluido else "DATAAGENDAMENTO"
+            data_registro = self._data_iso_valida(row.get(campo_data))
+            if data_registro and inicio <= data_registro <= fim:
+                selecionados.append(row)
+
+        return selecionados, inicio, fim, usa_dia_anterior
+
     def analytics(self, ano=None, mes=None, data_inicio=None, data_fim=None):
         """Agregações para a página de Dashboard (/dashboard), com uma
         janela de tempo configurável:
@@ -417,67 +494,15 @@ class DataClient:
 
         meses_alvo, janela_ini, janela_fim = self._resolver_janela_analises(ano, mes, data_inicio, data_fim)
 
-        # O Fechamento Geral tem um fallback próprio: sem nenhum filtro de
-        # período, mostra somente o dia anterior. Quando o usuário escolhe
-        # intervalo, mês ou ano, o quadro usa exatamente esse período.
-        if data_inicio or data_fim:
-            fechamento_inicio = data_inicio or data_fim
-            fechamento_fim = data_fim or data_inicio
-            if fechamento_inicio > fechamento_fim:
-                fechamento_inicio, fechamento_fim = fechamento_fim, fechamento_inicio
-            fechamento_fallback = False
-        elif ano and mes:
-            ano_fechamento, mes_fechamento = int(ano), int(mes)
-            fechamento_inicio = date(ano_fechamento, mes_fechamento, 1).isoformat()
-            fechamento_fim = date(
-                ano_fechamento,
-                mes_fechamento,
-                monthrange(ano_fechamento, mes_fechamento)[1],
-            ).isoformat()
-            fechamento_fallback = False
-        elif ano:
-            ano_fechamento = int(ano)
-            fechamento_inicio = date(ano_fechamento, 1, 1).isoformat()
-            fechamento_fim = date(ano_fechamento, 12, 31).isoformat()
-            fechamento_fallback = False
-        else:
-            dia_anterior = datetime.today().date() - timedelta(days=1)
-            fechamento_inicio = fechamento_fim = dia_anterior.isoformat()
-            fechamento_fallback = True
-
-        def data_iso_valida(valor):
-            normalizada = _parse_date(valor)
-            if not normalizada or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", normalizada):
-                return None
-            try:
-                date.fromisoformat(normalizada)
-            except ValueError:
-                return None
-            return normalizada
-
-        # Para CONCLUÍDO, a data operacional é DATACONCLUSAO. Para todos os
-        # demais status, é DATAAGENDAMENTO, igual ao resumo diário existente.
-        status_permitidos = {
-            _strip_accents(nome) for nome in STATUS_FECHAMENTO_ORDEM
-        }
-        registros_fechamento = []
-        for row in rows:
-            status_original = str(row.get("STATUS") or "").strip() or "Não informado"
-            status_chave = _strip_accents(status_original)
-            atividade_chave = _strip_accents(
-                str(row.get("ATIVIDADE") or "").strip() or "Não informado"
+        registros_fechamento, fechamento_inicio, fechamento_fim, fechamento_fallback = (
+            self._selecionar_registros_fechamento(
+                rows,
+                ano=ano,
+                mes=mes,
+                data_inicio=data_inicio,
+                data_fim=data_fim,
             )
-            if status_chave not in status_permitidos or atividade_chave == "instalacao":
-                continue
-            campo_data = (
-                "DATACONCLUSAO"
-                if status_chave == _strip_accents("CONCLUIDO")
-                else "DATAAGENDAMENTO"
-            )
-            data_registro = data_iso_valida(row.get(campo_data))
-            if not data_registro or not (fechamento_inicio <= data_registro <= fechamento_fim):
-                continue
-            registros_fechamento.append(row)
+        )
 
         atividades_por_chave = {
             _strip_accents(nome): nome for nome in ATIVIDADES_FECHAMENTO_ORDEM
@@ -701,6 +726,168 @@ class DataClient:
         # por_status (e qualquer outro/"geral") usam todos os registros da
         # janela, já que são apenas agrupamentos diferentes do mesmo total.
         return rows_na_janela
+
+    def export_fechamento_geral(
+        self, ano=None, mes=None, data_inicio=None, data_fim=None
+    ):
+        """Gera uma cópia filtrada da planilha-base preservando sua Tabela.
+
+        O arquivo original é aberto somente para leitura. A cópia mantém abas,
+        estilos, nome/estilo da Tabela e demais objetos suportados pelo
+        openpyxl; somente as células de dados da Tabela são substituídas pelos
+        registros que aparecem no Fechamento Geral.
+        """
+        caminho = Path(self._resolver_caminho_excel())
+        workbook = None
+
+        with EXCEL_LOCK:
+            try:
+                workbook = load_workbook(
+                    caminho,
+                    data_only=False,
+                    keep_links=True,
+                    rich_text=True,
+                )
+                if self.excel_sheet not in workbook.sheetnames:
+                    raise DataClientError(
+                        f"A aba '{self.excel_sheet}' não existe no arquivo.",
+                        status_code=409,
+                    )
+                worksheet = workbook[self.excel_sheet]
+                table = self._obter_tabela_excel(worksheet)
+                left, header_row, right, table_bottom = range_boundaries(table.ref)
+
+                if table.totalsRowCount or table.totalsRowShown:
+                    raise DataClientError(
+                        "A exportação do Fechamento Geral não suporta Tabela com linha de totais.",
+                        status_code=409,
+                    )
+
+                headers = {}
+                for column in range(left, right + 1):
+                    name = str(worksheet.cell(header_row, column).value or "").strip().upper()
+                    if name:
+                        headers[name] = column
+                campos_filtro = ["ATIVIDADE", "STATUS", "DATAAGENDAMENTO", "DATACONCLUSAO"]
+                missing = [field for field in campos_filtro if field not in headers]
+                if missing:
+                    raise DataClientError(
+                        "Colunas necessárias ausentes no Excel: " + ", ".join(missing),
+                        status_code=409,
+                    )
+
+                # A seleção é feita sobre as próprias linhas da Tabela para
+                # manter a ordem e copiar também eventuais colunas extras.
+                registros_tabela = []
+                for row_number in range(header_row + 1, table_bottom + 1):
+                    registro = {
+                        field: worksheet.cell(row_number, headers[field]).value
+                        for field in campos_filtro
+                    }
+                    registro["__excel_row_number"] = row_number
+                    registros_tabela.append(registro)
+
+                selecionados, inicio, fim, usa_dia_anterior = (
+                    self._selecionar_registros_fechamento(
+                        registros_tabela,
+                        ano=ano,
+                        mes=mes,
+                        data_inicio=data_inicio,
+                        data_fim=data_fim,
+                    )
+                )
+
+                snapshots = []
+                for registro in selecionados:
+                    source_row = registro["__excel_row_number"]
+                    cells = []
+                    for column in range(left, right + 1):
+                        source = worksheet.cell(source_row, column)
+                        cells.append({
+                            "value": source.value,
+                            "style": copy(source._style),
+                            "hyperlink": copy(source.hyperlink),
+                            "comment": copy(source.comment),
+                            "coordinate": source.coordinate,
+                        })
+                    snapshots.append({
+                        "cells": cells,
+                        "height": worksheet.row_dimensions[source_row].height,
+                    })
+
+                # Limpa somente o conteúdo do intervalo de dados. Estilos,
+                # larguras, validações, Tabela e demais elementos permanecem.
+                for row_number in range(header_row + 1, table_bottom + 1):
+                    for column in range(left, right + 1):
+                        target = worksheet.cell(row_number, column)
+                        target.value = None
+                        target.hyperlink = None
+                        target.comment = None
+
+                for offset, snapshot in enumerate(snapshots, start=1):
+                    target_row = header_row + offset
+                    for column, source_snapshot in zip(
+                        range(left, right + 1), snapshot["cells"]
+                    ):
+                        target = worksheet.cell(target_row, column)
+                        value = source_snapshot["value"]
+                        if isinstance(value, str) and value.startswith("="):
+                            try:
+                                value = Translator(
+                                    value, origin=source_snapshot["coordinate"]
+                                ).translate_formula(target.coordinate)
+                            except Exception:  # fórmula estruturada ou não traduzível
+                                logger.debug(
+                                    "Fórmula mantida sem tradução em %s", target.coordinate
+                                )
+                        target.value = value
+                        target._style = copy(source_snapshot["style"])
+                        target.hyperlink = copy(source_snapshot["hyperlink"])
+                        target.comment = copy(source_snapshot["comment"])
+                    worksheet.row_dimensions[target_row].height = snapshot["height"]
+
+                # Uma Tabela vazia conserva uma única linha em branco, que é
+                # ignorada pela aplicação por não ter IDCLIENTE.
+                new_bottom = header_row + max(1, len(snapshots))
+                table.ref = (
+                    f"{get_column_letter(left)}{header_row}:"
+                    f"{get_column_letter(right)}{new_bottom}"
+                )
+                if table.autoFilter is not None:
+                    table.autoFilter.ref = table.ref
+
+                buffer = io.BytesIO()
+                workbook.save(buffer)
+                buffer.seek(0)
+                logger.info(
+                    "Exportação Fechamento Geral gerada: %s registro(s), período %s a %s",
+                    len(snapshots),
+                    inicio,
+                    fim,
+                )
+                return buffer, {
+                    "total": len(snapshots),
+                    "data_inicio": inicio,
+                    "data_fim": fim,
+                    "usa_dia_anterior": usa_dia_anterior,
+                }
+            except DataClientError:
+                raise
+            except PermissionError as exc:
+                raise DataClientError(
+                    "Não foi possível ler a planilha-base para gerar o Excel. "
+                    "Confirme a sincronização do OneDrive e tente novamente.",
+                    status_code=500,
+                ) from exc
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("Erro gerando exportação do Fechamento Geral")
+                raise DataClientError(
+                    f"Erro ao gerar o Excel do Fechamento Geral: {exc}",
+                    status_code=500,
+                ) from exc
+            finally:
+                if workbook is not None:
+                    workbook.close()
 
     def status_arquivo(self):
         """Diagnóstico: informa se o Excel foi localizado, onde, e quais
@@ -1055,6 +1242,28 @@ class DataClient:
         except Exception:  # noqa: BLE001
             return "(não foi possível listar as abas)"
 
+    def _obter_tabela_excel(self, worksheet):
+        """Retorna a Tabela estruturada configurada para a aba de dados."""
+        table_name = os.getenv("EXCEL_TABLE", "").strip()
+        if table_name:
+            if table_name not in worksheet.tables:
+                raise DataClientError(
+                    f"A tabela '{table_name}' não existe na aba '{self.excel_sheet}'.",
+                    status_code=409,
+                )
+            return worksheet.tables[table_name]
+        if len(worksheet.tables) == 1:
+            return next(iter(worksheet.tables.values()))
+        if len(worksheet.tables) > 1:
+            raise DataClientError(
+                "Há várias tabelas na aba; configure EXCEL_TABLE no .env.",
+                status_code=409,
+            )
+        raise DataClientError(
+            "A aba não possui uma Tabela do Excel. Converta o intervalo em tabela antes do CRUD.",
+            status_code=409,
+        )
+
     def _excel_read_all(self):
         caminho = self._resolver_caminho_excel()
         with EXCEL_LOCK:
@@ -1126,26 +1335,7 @@ class DataClient:
                     )
                 worksheet = workbook[self.excel_sheet]
 
-                table_name = os.getenv("EXCEL_TABLE", "").strip()
-                if table_name:
-                    if table_name not in worksheet.tables:
-                        raise DataClientError(
-                            f"A tabela '{table_name}' não existe na aba '{self.excel_sheet}'.",
-                            status_code=409,
-                        )
-                    table = worksheet.tables[table_name]
-                elif len(worksheet.tables) == 1:
-                    table = next(iter(worksheet.tables.values()))
-                elif len(worksheet.tables) > 1:
-                    raise DataClientError(
-                        "Há várias tabelas na aba; configure EXCEL_TABLE no .env.",
-                        status_code=409,
-                    )
-                else:
-                    raise DataClientError(
-                        "A aba não possui uma Tabela do Excel. Converta o intervalo em tabela antes do CRUD.",
-                        status_code=409,
-                    )
+                table = self._obter_tabela_excel(worksheet)
 
                 left, header_row, right, table_bottom = range_boundaries(table.ref)
                 if table.totalsRowCount or table.totalsRowShown:
