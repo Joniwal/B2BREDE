@@ -277,7 +277,7 @@ function renderizarFechamentoGeral(fechamento) {
   const inicio = formatarDataIso(fechamento.data_inicio);
   const fim = formatarDataIso(fechamento.data_fim);
   if (fechamento.data_inicio === fechamento.data_fim) {
-    periodo.textContent = `${fechamento.usa_dia_anterior ? "Dia anterior" : "Data selecionada"}: ${inicio}`;
+    periodo.textContent = `${fechamento.usa_dia_anterior ? "Dia útil anterior" : "Data selecionada"}: ${inicio}`;
   } else {
     periodo.textContent = `Período selecionado: ${inicio} a ${fim}`;
   }
