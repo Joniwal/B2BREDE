@@ -119,8 +119,9 @@ públicos brasileiros. Nesse resumo, **Concluídos** usa `DATACONCLUSAO`; **PCC*
 
 Na aba **Dashboard**, o quadro **Fechamento Geral** mostra atividades nas
 linhas, status nas colunas e os respectivos totais. Sem filtro de período, ele
-usa o dia anterior. Ao aplicar data, intervalo, mês ou ano no Dashboard, o
-quadro passa a usar exatamente o período selecionado. Assim como no resumo
+usa o último dia útil anterior, ignorando sábados, domingos e os mesmos feriados
+configurados para o resumo diário. Ao aplicar data, intervalo, mês ou ano no
+Dashboard, o quadro passa a usar exatamente o período selecionado. Assim como no resumo
 diário, `CONCLUIDO` é associado a `DATACONCLUSAO`; todos os demais status são
 associados a `DATAAGENDAMENTO`. O quadro exibe somente `AGENDADO`, `CABO NA
 PORTA`, `CANCELADO`, `CONCLUIDO`, `INICIADO NAO CONCLUIDO`, `PCC` e `SEM ACAO
@@ -207,7 +208,7 @@ no `PATH` e acesso à internet durante a primeira execução.
 onde `.bat` é bloqueado — quem "executa" aqui é o `python.exe`, já
 autorizado, não um `.exe`/`.bat` novo):
 ```bash
-python -m PyInstaller --name REDEB2B --noconfirm --onefile --icon static/favicon.ico --add-data "templates;templates" --add-data "static;static" --collect-all pandas --collect-all openpyxl --collect-all flask app.py
+python -m PyInstaller --name REDEB2B --noconfirm --onefile --icon static/favicon.ico --add-data "templates;templates" --add-data "static;static" --collect-all pandas --collect-all openpyxl --collect-all holidays --collect-all flask app.py
 ```
 (a flag `--icon static/favicon.ico` usa o ícone do projeto como ícone do
 `.exe` gerado; pode omitir essa flag se não quiser um ícone customizado)
