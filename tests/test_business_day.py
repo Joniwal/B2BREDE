@@ -20,6 +20,12 @@ class MondayDateTime(datetime):
         return cls(2026, 8, 31, 12, 0, 0)
 
 
+class TuesdayAfterHolidayDateTime(datetime):
+    @classmethod
+    def today(cls):
+        return cls(2026, 9, 8, 12, 0, 0)
+
+
 class BusinessDayTests(unittest.TestCase):
     @patch.dict(os.environ, CALENDAR_ENV)
     def test_skips_saturday_and_sunday(self):
@@ -36,6 +42,32 @@ class BusinessDayTests(unittest.TestCase):
     )
     def test_skips_custom_holiday(self):
         self.assertEqual(_dia_util_anterior(date(2026, 8, 31)), date(2026, 8, 27))
+
+    @patch("excel_client.datetime", MondayDateTime)
+    @patch.dict(os.environ, CALENDAR_ENV)
+    def test_fechamento_geral_skips_weekend_without_period_filter(self):
+        client = DataClient()
+
+        inicio, fim, usa_fallback = client._resolver_periodo_fechamento(
+            None, None, None, None
+        )
+
+        self.assertEqual(inicio, "2026-08-28")
+        self.assertEqual(fim, "2026-08-28")
+        self.assertTrue(usa_fallback)
+
+    @patch("excel_client.datetime", TuesdayAfterHolidayDateTime)
+    @patch.dict(os.environ, CALENDAR_ENV)
+    def test_fechamento_geral_skips_holiday_without_period_filter(self):
+        client = DataClient()
+
+        inicio, fim, usa_fallback = client._resolver_periodo_fechamento(
+            None, None, None, None
+        )
+
+        self.assertEqual(inicio, "2026-09-04")
+        self.assertEqual(fim, "2026-09-04")
+        self.assertTrue(usa_fallback)
 
     @patch("excel_client.datetime", MondayDateTime)
     @patch.dict(os.environ, CALENDAR_ENV)
