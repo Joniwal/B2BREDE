@@ -418,7 +418,8 @@ class DataClient:
         """Resolve o período do Fechamento Geral.
 
         O intervalo explícito tem prioridade; depois vêm ano/mês e ano. Sem
-        filtro, o quadro e a exportação usam o dia-calendário anterior.
+        filtro, o quadro e a exportação usam o último dia útil anterior,
+        considerando fins de semana e o calendário de feriados configurado.
         """
         if data_inicio or data_fim:
             inicio = self._data_iso_valida(data_inicio or data_fim)
@@ -445,8 +446,7 @@ class DataClient:
                 False,
             )
 
-        dia_anterior = datetime.today().date() - timedelta(days=1)
-        data_padrao = dia_anterior.isoformat()
+        data_padrao = _dia_util_anterior(datetime.today().date()).isoformat()
         return data_padrao, data_padrao, True
 
     def _selecionar_registros_fechamento(
