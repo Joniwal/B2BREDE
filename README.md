@@ -121,8 +121,8 @@ Na aba **Dashboard**, o quadro **Fechamento Geral** mostra atividades nas
 linhas, status nas colunas e os respectivos totais. Sem filtro de período, ele
 usa o último dia útil anterior, ignorando sábados, domingos e os mesmos feriados
 configurados para o resumo diário. Ao aplicar data, intervalo, mês ou ano no
-Dashboard, o quadro passa a usar exatamente o período selecionado. Assim como no resumo
-diário, `CONCLUIDO` é associado a `DATACONCLUSAO`; todos os demais status são
+Dashboard, o quadro passa a usar exatamente o período selecionado. Assim como
+no resumo diário, `CONCLUIDO` é associado a `DATACONCLUSAO`; todos os demais status são
 associados a `DATAAGENDAMENTO`. O quadro exibe somente `AGENDADO`, `CABO NA
 PORTA`, `CANCELADO`, `CONCLUIDO`, `INICIADO NAO CONCLUIDO`, `PCC` e `SEM ACAO
 OSP`; a atividade `INSTALAÇÃO` não é exibida nem incluída nos totais.
