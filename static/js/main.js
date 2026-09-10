@@ -143,6 +143,7 @@ const FORM_FIELDS = [
 ];
 
 document.addEventListener("DOMContentLoaded", () => {
+  prepararLayoutGrupoExecutor();
   populateStatusSelects();
   populateFixedFormSelects();
   populateFilterSelects();
@@ -150,6 +151,46 @@ document.addEventListener("DOMContentLoaded", () => {
   loadDashboard();
   loadItems();
 });
+
+/** Garante o novo layout mesmo quando o Flask ainda mantém o HTML anterior
+ * em cache. Após reiniciar o servidor, o template já entrega esta estrutura. */
+function prepararLayoutGrupoExecutor() {
+  if (document.getElementById("btnExportarEmCampoHoje")) return;
+
+  const canvasExecutor = document.getElementById("chartExecutadoPor");
+  const canvasConclusao = document.getElementById("chartDataConclusao");
+  const colunaExecutor = canvasExecutor?.closest("[class*='col-']");
+  const colunaConclusao = canvasConclusao?.closest("[class*='col-']");
+  if (!colunaExecutor || !colunaConclusao) return;
+
+  colunaExecutor.classList.remove("col-lg-6", "col-md-6");
+  colunaExecutor.classList.add("col-lg-4", "col-md-7");
+  canvasExecutor.closest(".chart-canvas-box")?.classList.add("chart-canvas-box-compact");
+  const titulo = colunaExecutor.querySelector("h6");
+  if (titulo) titulo.textContent = "Por grupo executor — mês vigente";
+
+  colunaConclusao.classList.remove("col-lg-6", "col-md-6");
+  colunaConclusao.classList.add("col-lg-6", "col-md-12");
+  colunaExecutor.insertAdjacentHTML("afterend", `
+    <div class="col-lg-2 col-md-5">
+      <div class="chart-card em-campo-card">
+        <h6 class="d-flex align-items-start justify-content-between gap-2">
+          <span>Atividades em campo hoje</span>
+          <button type="button" id="btnExportarEmCampoHoje"
+                  class="btn btn-link chart-export-icon em-campo-export-button p-0"
+                  title="Baixar as atividades em campo de hoje em Excel"
+                  aria-label="Baixar atividades em campo de hoje em Excel" disabled>
+            <i class="bi bi-file-earmark-excel"></i>
+          </button>
+        </h6>
+        <div class="em-campo-card-body">
+          <i class="bi bi-geo-alt-fill em-campo-card-icon" aria-hidden="true"></i>
+          <div id="emCampoHojeTotal" class="em-campo-card-total">0</div>
+          <div id="emCampoHojeData" class="em-campo-card-date">Carregando...</div>
+        </div>
+      </div>
+    </div>`);
+}
 
 /* -------------------------------------------------------------------- */
 /* Setup                                                                 */
@@ -309,6 +350,24 @@ function bindEvents() {
     const params = buildQueryParams({ sort: state.sort || undefined });
     window.open(`/api/export?${params.toString()}`, "_blank");
   });
+
+  const btnExportarEmCampo = document.getElementById("btnExportarEmCampoHoje");
+  if (btnExportarEmCampo) {
+    btnExportarEmCampo.addEventListener("click", () => {
+      const data = btnExportarEmCampo.dataset.data;
+      if (!data) {
+        showAlert("A data das atividades em campo ainda não foi carregada.", "warning");
+        return;
+      }
+      const params = new URLSearchParams({
+        status: "EM CAMPO",
+        dataInicio: data,
+        dataFim: data,
+        sort: state.sort || "DATAAGENDAMENTO:desc",
+      });
+      window.open(`/api/export?${params.toString()}`, "_blank");
+    });
+  }
 }
 
 function collectFilters() {
@@ -525,6 +584,15 @@ async function loadDashboard() {
   try {
     const data = await apiFetch(`/api/dashboard?${params.toString()}`);
     renderKpis(data.kpis);
+    if (data.atividades_em_campo_hoje) {
+      renderAtividadesEmCampoHoje(data.atividades_em_campo_hoje);
+    } else {
+      try {
+        await loadAtividadesEmCampoHoje();
+      } catch (cardErr) {
+        console.error("Erro ao carregar atividades em campo de hoje:", cardErr);
+      }
+    }
     try {
       renderCharts(data);
     } catch (chartErr) {
@@ -534,6 +602,39 @@ async function loadDashboard() {
   } catch (err) {
     // erro já exibido via apiFetch
   }
+}
+
+function formatDateIsoLocal(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+async function loadAtividadesEmCampoHoje() {
+  const hoje = formatDateIsoLocal();
+  const params = new URLSearchParams({
+    status: "EM CAMPO",
+    dataInicio: hoje,
+    dataFim: hoje,
+    page: "1",
+    page_size: "1",
+  });
+  const data = await apiFetch(`/api/items?${params.toString()}`);
+  renderAtividadesEmCampoHoje({ data: hoje, total: data.total });
+}
+
+function renderAtividadesEmCampoHoje(resumo) {
+  const total = document.getElementById("emCampoHojeTotal");
+  const data = document.getElementById("emCampoHojeData");
+  const exportar = document.getElementById("btnExportarEmCampoHoje");
+  if (!total || !data || !exportar) return;
+
+  const dataIso = resumo?.data || "";
+  total.textContent = Number(resumo?.total) || 0;
+  data.textContent = dataIso ? `Hoje — ${formatDateBR(dataIso)}` : "Data indisponível";
+  exportar.dataset.data = dataIso;
+  exportar.disabled = !dataIso;
 }
 
 function renderKpis(kpis) {
@@ -611,8 +712,24 @@ function destroyChart(key) {
 
 function renderCharts(data) {
   renderResumoDiaAnterior("chartResumoDiaAnterior", data.resumo_dia_anterior);
-  renderBarChart("chartExecutadoPor", data.por_executadopor, "#f0913e");
+  renderBarChart(
+    "chartExecutadoPor",
+    consolidarGruposExecutores(data.por_executadopor),
+    "#f0913e"
+  );
   renderLineChart("chartDataConclusao", data.por_data_conclusao);
+}
+
+function consolidarGruposExecutores(dataset = {}) {
+  const totais = { "RS TELECOM": 0, "SEM AÇÃO OSP": 0, "VIVO": 0 };
+  (dataset.labels || []).forEach((label, index) => {
+    const normalizado = normalizeStatusKey(label);
+    const grupo = normalizado === "rs telecom"
+      ? "RS TELECOM"
+      : normalizado === "sem acao osp" ? "SEM AÇÃO OSP" : "VIVO";
+    totais[grupo] += Number(dataset.data?.[index]) || 0;
+  });
+  return { labels: Object.keys(totais), data: Object.values(totais) };
 }
 
 function renderResumoDiaAnterior(canvasId, dataset) {

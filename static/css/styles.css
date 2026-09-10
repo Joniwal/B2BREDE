@@ -290,6 +290,58 @@ body {
   height: 100% !important;
 }
 
+.chart-canvas-box-compact {
+  height: 160px;
+}
+
+.em-campo-card {
+  border-left: 4px solid #2f5aa8;
+  min-height: 100%;
+}
+
+.em-campo-export-button {
+  color: #59a869;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.em-campo-export-button:hover,
+.em-campo-export-button:focus {
+  color: #3d7a4d;
+}
+
+.em-campo-export-button:disabled {
+  color: #aab2bd;
+  opacity: .65;
+}
+
+.em-campo-card-body {
+  min-height: 148px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #2f5aa8;
+  text-align: center;
+}
+
+.em-campo-card-icon {
+  font-size: 22pt;
+  margin-bottom: 2px;
+}
+
+.em-campo-card-total {
+  font-size: 28pt;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.em-campo-card-date {
+  color: #6b7280;
+  font-size: 7.5pt;
+  margin-top: 7px;
+}
+
 /* ---------------------------------------------------------------------- */
 /* Tabela                                                                  */
 /* ---------------------------------------------------------------------- */

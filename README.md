@@ -149,6 +149,12 @@ em `BUSINESS_HOLIDAYS`, separados por vírgula ou ponto e vírgula, sempre no
 formato `YYYY-MM-DD`. Para considerar também pontos facultativos, altere
 `BUSINESS_HOLIDAY_INCLUDE_OPTIONAL` para `true`.
 
+No painel principal, o gráfico **Por grupo executor** consolida o mês vigente
+em três categorias fixas: `RS TELECOM`, `SEM AÇÃO OSP` e `VIVO`; qualquer
+executor diferente dos dois primeiros é somado em `VIVO`. O card **Atividades
+em campo hoje** conta registros com `STATUS=EM CAMPO` e `DATAAGENDAMENTO` igual
+à data atual. Seu ícone do Excel exporta exatamente esses registros.
+
 **Opção 2 — manual:** preencha `EXCEL_PATH` com o caminho completo. Quando
 preenchido, ele tem prioridade sobre a busca automática.
 ```

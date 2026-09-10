@@ -65,11 +65,43 @@ class AnalyticsTests(unittest.TestCase):
         self.assertEqual(data["kpis"]["concluidos_total"], 2)
 
     @patch("excel_client.datetime", FixedDateTime)
-    def test_dashboard_executor_counts_only_current_month_conclusions(self):
+    def test_dashboard_groups_current_month_executors_into_three_fixed_groups(self):
+        self.client._excel_read_all = lambda: [
+            {"EXECUTADOPOR": "RS TELECOM", "DATAAGENDAMENTO": "2026-08-01"},
+            {"EXECUTADOPOR": " rs telecom ", "DATAAGENDAMENTO": "2026-08-02"},
+            {"EXECUTADOPOR": "SEM AÇÃO OSP", "DATAAGENDAMENTO": "2026-08-03"},
+            {"EXECUTADOPOR": "Ana", "DATAAGENDAMENTO": "2026-08-04"},
+            {"EXECUTADOPOR": "Carlos", "DATAAGENDAMENTO": "2026-08-05"},
+            {"EXECUTADOPOR": "RS TELECOM", "DATAAGENDAMENTO": "2026-07-31"},
+        ]
+
         data = self.client.dashboard_aggregates()
 
-        self.assertEqual(data["por_executadopor"]["labels"], ["Ana", "Bruno"])
-        self.assertEqual(data["por_executadopor"]["data"], [2, 1])
+        self.assertEqual(
+            data["por_executadopor"]["labels"],
+            ["RS TELECOM", "SEM AÇÃO OSP", "VIVO"],
+        )
+        self.assertEqual(data["por_executadopor"]["data"], [2, 1, 2])
+
+    @patch("excel_client.datetime", FixedDateTime)
+    def test_dashboard_counts_em_campo_today_independently_from_screen_filters(self):
+        self.client._excel_read_all = lambda: [
+            {"IDCLIENTE": "1", "STATUS": "EM CAMPO", "DATAAGENDAMENTO": "2026-08-25"},
+            {"IDCLIENTE": "2", "STATUS": " em campo ", "DATAAGENDAMENTO": "25/08/2026"},
+            {"IDCLIENTE": "3", "STATUS": "EM CAMPO", "DATAAGENDAMENTO": "2026-08-24"},
+            {"IDCLIENTE": "4", "STATUS": "AGENDADO", "DATAAGENDAMENTO": "2026-08-25"},
+        ]
+
+        data = self.client.dashboard_aggregates(filters={"status": "NOVO"})
+        resumo = data["atividades_em_campo_hoje"]
+
+        self.assertEqual(resumo, {"data": "2026-08-25", "total": 2})
+        exportados = self.client.export_items(filters={
+            "status": "EM CAMPO",
+            "data_inicio": resumo["data"],
+            "data_fim": resumo["data"],
+        })
+        self.assertEqual([row["IDCLIENTE"] for row in exportados], ["1", "2"])
 
     def test_analytics_timeline_and_executor_share_completed_base(self):
         data = self.client.analytics(ano=2026, mes=8)

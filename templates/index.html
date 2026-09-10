@@ -15,7 +15,7 @@
 <!-- Bootstrap Icons -->
 <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 <!-- Estilos próprios -->
-<link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet">
+<link href="{{ url_for('static', filename='css/styles.css') }}?v=executor-card-1" rel="stylesheet">
 </head>
 <body>
 
@@ -148,13 +148,31 @@
 
     <!-- GRÁFICOS -->
     <div class="row g-3 mb-3">
-      <div class="col-lg-6 col-md-6">
+      <div class="col-lg-4 col-md-7">
         <div class="chart-card">
-          <h6>Por Executado Por — mês vigente</h6>
-          <div class="chart-canvas-box"><canvas id="chartExecutadoPor"></canvas></div>
+          <h6>Por grupo executor — mês vigente</h6>
+          <div class="chart-canvas-box chart-canvas-box-compact"><canvas id="chartExecutadoPor"></canvas></div>
         </div>
       </div>
-      <div class="col-lg-6 col-md-6">
+      <div class="col-lg-2 col-md-5">
+        <div class="chart-card em-campo-card">
+          <h6 class="d-flex align-items-start justify-content-between gap-2">
+            <span>Atividades em campo hoje</span>
+            <button type="button" id="btnExportarEmCampoHoje"
+                    class="btn btn-link chart-export-icon em-campo-export-button p-0"
+                    title="Baixar as atividades em campo de hoje em Excel"
+                    aria-label="Baixar atividades em campo de hoje em Excel" disabled>
+              <i class="bi bi-file-earmark-excel"></i>
+            </button>
+          </h6>
+          <div class="em-campo-card-body">
+            <i class="bi bi-geo-alt-fill em-campo-card-icon" aria-hidden="true"></i>
+            <div id="emCampoHojeTotal" class="em-campo-card-total">0</div>
+            <div id="emCampoHojeData" class="em-campo-card-date">Carregando...</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6 col-md-12">
         <div class="chart-card">
           <h6>Por Data de Conclusão</h6>
           <div class="chart-canvas-box"><canvas id="chartDataConclusao"></canvas></div>
@@ -222,7 +240,7 @@
 <!-- Chart.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <!-- Lógica da aplicação -->
-<script src="{{ url_for('static', filename='js/main.js') }}?v=resumo-dia-util-3"></script>
+<script src="{{ url_for('static', filename='js/main.js') }}?v=executor-card-1"></script>
 <script src="{{ url_for('static', filename='js/app-controls.js') }}?v=encerrar-1"></script>
 </body>
 </html>

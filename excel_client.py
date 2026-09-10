@@ -957,8 +957,8 @@ class DataClient:
     def dashboard_aggregates(self, filters=None):
         """Retorna agregações prontas para Chart.js + KPIs, respeitando filtros opcionais."""
         filters = filters or {}
-        rows = self._excel_read_all()
-        rows = self._apply_filters(rows, filters)
+        todos_os_registros = self._excel_read_all()
+        rows = self._apply_filters(todos_os_registros, filters)
 
         def group_count(field, base_rows=None):
             base_rows = rows if base_rows is None else base_rows
@@ -1016,8 +1016,6 @@ class DataClient:
         # Resumo do dia útil anterior, independente dos filtros da tela.
         # Concluídos são contabilizados pela DATACONCLUSAO. Todos os demais
         # status usam DATAAGENDAMENTO, conforme a regra operacional do painel.
-        # Lê a base sem filtro nenhum, de propósito.
-        todos_os_registros = self._excel_read_all()
         dia_util_anterior = _dia_util_anterior(datetime.today().date()).isoformat()
 
         def _total_status_por_data(nome_status, campo_data):
@@ -1076,10 +1074,48 @@ class DataClient:
 
             rows_executadopor = [r for r in rows if _no_mes_atual_agendamento(r)]
 
+        # Consolida o gráfico em três grupos fixos. RS TELECOM e SEM AÇÃO OSP
+        # permanecem separados; qualquer outro executor compõe VIVO.
+        executores_consolidados = {
+            "RS TELECOM": 0,
+            "SEM AÇÃO OSP": 0,
+            "VIVO": 0,
+        }
+        for row in rows_executadopor:
+            executor = _strip_accents(
+                str(row.get("EXECUTADOPOR") or "").strip()
+            )
+            if executor == "rs telecom":
+                grupo = "RS TELECOM"
+            elif executor == "sem acao osp":
+                grupo = "SEM AÇÃO OSP"
+            else:
+                grupo = "VIVO"
+            executores_consolidados[grupo] += 1
+
+        por_executadopor = {
+            "labels": list(executores_consolidados.keys()),
+            "data": list(executores_consolidados.values()),
+        }
+
+        # Card diário e sua exportação usam a mesma regra: status EM CAMPO e
+        # DATAAGENDAMENTO igual à data atual. A contagem não muda com os
+        # filtros da tela, assim como o resumo do dia útil anterior.
+        hoje_iso = datetime.today().date().isoformat()
+        total_em_campo_hoje = sum(
+            1 for row in todos_os_registros
+            if _parse_date(row.get("DATAAGENDAMENTO")) == hoje_iso
+            and _strip_accents(str(row.get("STATUS") or "").strip()) == "em campo"
+        )
+
         return {
             "kpis": kpis,
             "resumo_dia_anterior": resumo_dia_anterior,
-            "por_executadopor": group_count("EXECUTADOPOR", rows_executadopor),
+            "por_executadopor": por_executadopor,
+            "atividades_em_campo_hoje": {
+                "data": hoje_iso,
+                "total": total_em_campo_hoje,
+            },
             "por_status": status_counts,
             "por_data_conclusao": self._group_by_date(concluidos_periodo, "DATACONCLUSAO"),
         }
@@ -1127,7 +1163,9 @@ class DataClient:
                 return False
             if executadopor and _strip_accents(executadopor) not in _strip_accents(row.get("EXECUTADOPOR")):
                 return False
-            if status and _strip_accents(status) != _strip_accents(row.get("STATUS")):
+            if status and _strip_accents(str(status).strip()) != _strip_accents(
+                str(row.get("STATUS") or "").strip()
+            ):
                 return False
             if mes:
                 if _strip_accents(row.get("STATUS")) != _strip_accents("Concluído"):
