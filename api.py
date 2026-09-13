@@ -16,11 +16,13 @@ import pandas as pd
 from flask import Blueprint, request, jsonify, send_file
 
 from excel_client import DataClient, DataClientError, FIELDS
+from ativacao_client import AtivacaoClient, EXCEL_HEADERS as ATIVACAO_HEADERS, FIELDS as ATIVACAO_FIELDS
 
 logger = logging.getLogger("redeb2b.api")
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 
 data_client = DataClient()
+ativacao_client = AtivacaoClient()
 
 
 def _error_response(exc: DataClientError):
@@ -44,6 +46,21 @@ def _parse_pagination_and_filters():
     page_size = int(request.args.get("page_size", 20))
     sort = request.args.get("sort")
     return filters, page, page_size, sort
+
+
+def _parse_ativacao_filters():
+    filters = {
+        "servico": request.args.get("servico"),
+        "empresa": request.args.get("empresa"),
+        "tecnologia": request.args.get("tecnologia"),
+        "status": request.args.get("status"),
+        "faturado": request.args.get("faturado"),
+        "com_rfs": request.args.get("comRfs"),
+        "data_execucao": request.args.get("dataExecucao"),
+        "data_agendamento": request.args.get("dataAgendamento"),
+        "q": request.args.get("q"),
+    }
+    return {key: value for key, value in filters.items() if value}
 
 
 @api_bp.route("/items", methods=["GET"])
@@ -277,3 +294,122 @@ def export_items():
     except Exception:  # noqa: BLE001
         logger.exception("Erro inesperado em GET /api/export")
         return jsonify({"ok": False, "error": "Erro interno ao gerar a exportação para Excel."}), 500
+
+
+# ---------------------------------------------------------------------------
+# ATIVAÇÃO
+# ---------------------------------------------------------------------------
+
+@api_bp.route("/ativacao/options", methods=["GET"])
+def ativacao_options():
+    return jsonify({"ok": True, "data": ativacao_client.options()})
+
+
+@api_bp.route("/ativacao/status", methods=["GET"])
+def ativacao_status():
+    try:
+        return jsonify({"ok": True, "data": ativacao_client.status_file()})
+    except DataClientError as exc:
+        return _error_response(exc)
+
+
+@api_bp.route("/ativacao/records", methods=["GET"])
+def ativacao_records():
+    try:
+        filters = _parse_ativacao_filters()
+        page = int(request.args.get("page", 1))
+        page_size = int(request.args.get("page_size", 20))
+        sort = request.args.get("sort", "data_execucao:desc")
+        result = ativacao_client.list(filters, page=page, page_size=page_size, sort=sort)
+        return jsonify({"ok": True, "data": result})
+    except DataClientError as exc:
+        return _error_response(exc)
+    except ValueError:
+        return jsonify({"ok": False, "error": "Paginação inválida."}), 400
+    except Exception:  # noqa: BLE001
+        logger.exception("Erro inesperado em GET /api/ativacao/records")
+        return jsonify({"ok": False, "error": "Erro interno ao listar ativações."}), 500
+
+
+@api_bp.route("/ativacao/records/<int:item_id>", methods=["GET"])
+def ativacao_get_record(item_id):
+    try:
+        return jsonify({"ok": True, "data": ativacao_client.get(item_id)})
+    except DataClientError as exc:
+        return _error_response(exc)
+    except Exception:  # noqa: BLE001
+        logger.exception("Erro inesperado ao buscar ativação ID %s", item_id)
+        return jsonify({"ok": False, "error": "Erro interno ao buscar a ativação."}), 500
+
+
+@api_bp.route("/ativacao/records", methods=["POST"])
+def ativacao_create_record():
+    try:
+        payload = request.get_json(force=True, silent=True) or {}
+        result = ativacao_client.create(payload)
+        return jsonify({"ok": True, "data": result}), 201
+    except DataClientError as exc:
+        return _error_response(exc)
+    except Exception:  # noqa: BLE001
+        logger.exception("Erro inesperado em POST /api/ativacao/records")
+        return jsonify({"ok": False, "error": "Erro interno ao salvar a ativação."}), 500
+
+
+@api_bp.route("/ativacao/records/<int:item_id>", methods=["PATCH"])
+def ativacao_update_record(item_id):
+    try:
+        payload = request.get_json(force=True, silent=True) or {}
+        result = ativacao_client.update(item_id, payload)
+        return jsonify({"ok": True, "data": result})
+    except DataClientError as exc:
+        return _error_response(exc)
+    except Exception:  # noqa: BLE001
+        logger.exception("Erro inesperado ao atualizar ativação ID %s", item_id)
+        return jsonify({"ok": False, "error": "Erro interno ao atualizar a ativação."}), 500
+
+
+@api_bp.route("/ativacao/records/<int:item_id>", methods=["DELETE"])
+def ativacao_delete_record(item_id):
+    try:
+        return jsonify({"ok": True, "data": ativacao_client.delete(item_id)})
+    except DataClientError as exc:
+        return _error_response(exc)
+    except Exception:  # noqa: BLE001
+        logger.exception("Erro inesperado ao excluir ativação ID %s", item_id)
+        return jsonify({"ok": False, "error": "Erro interno ao excluir a ativação."}), 500
+
+
+@api_bp.route("/ativacao/dashboard", methods=["GET"])
+def ativacao_dashboard():
+    try:
+        filters = _parse_ativacao_filters()
+        result = ativacao_client.dashboard(filters)
+        return jsonify({"ok": True, "data": result})
+    except DataClientError as exc:
+        return _error_response(exc)
+    except Exception:  # noqa: BLE001
+        logger.exception("Erro inesperado em GET /api/ativacao/dashboard")
+        return jsonify({"ok": False, "error": "Erro interno ao gerar o painel de ativação."}), 500
+
+
+@api_bp.route("/ativacao/export", methods=["GET"])
+def ativacao_export():
+    try:
+        rows = ativacao_client.export_rows(_parse_ativacao_filters())
+        frame = pd.DataFrame(rows, columns=ATIVACAO_FIELDS)
+        frame.columns = ATIVACAO_HEADERS
+        buffer = io.BytesIO()
+        frame.to_excel(buffer, index=False, sheet_name="ATIVACAO")
+        buffer.seek(0)
+        filename = f"ATIVACAO_export_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=filename,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+    except DataClientError as exc:
+        return _error_response(exc)
+    except Exception:  # noqa: BLE001
+        logger.exception("Erro inesperado em GET /api/ativacao/export")
+        return jsonify({"ok": False, "error": "Erro interno ao exportar as ativações."}), 500

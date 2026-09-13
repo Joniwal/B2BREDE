@@ -2,7 +2,10 @@
 
 Aplicação web para gerenciar os registros de agendamento de clientes e
 atividades de rede (REDEB2B), com CRUD completo, busca, filtros, paginação,
-ordenação e um dashboard analítico com gráficos. Os dados são lidos e
+ordenação e dashboards analíticos com gráficos. A página `/ativacao` gerencia
+o arquivo `ATIVACAO.xlsx`, localizado automaticamente ao lado do executável,
+na Área de Trabalho, em Documentos ou no OneDrive, com gráficos por status,
+tecnologia, serviço, faturamento, RFS e data de encerramento. Os dados são lidos e
 gravados diretamente em um arquivo Excel local (`.xlsx`), sem nenhuma
 dependência de SharePoint, Azure AD ou Microsoft Graph.
 
@@ -15,11 +18,13 @@ redeb2b_app/
 ├── app.py                  # Inicialização do Flask, registro de blueprint, error handlers
 ├── api.py                  # Blueprint com os endpoints REST (/api/...)
 ├── excel_client.py         # Camada de dados: leitura/escrita no Excel via pandas/openpyxl
+├── ativacao_client.py      # CRUD, validações, filtros e painel de Ativação
 ├── gerar_dados_exemplo.py  # Script para popular um Excel de teste
 ├── requirements.txt
 ├── .env.example
 ├── templates/
 │   ├── index.html          # Página única: topbar, filtros, KPIs, gráficos, tabela
+│   ├── ativacao.html       # Página de Ativação, painel e modal de cadastro
 │   └── modals.html         # Modais de criar/editar, excluir e "itens por data"
 └── static/
     ├── css/styles.css
@@ -61,6 +66,11 @@ Desktop durante uma gravação para evitar bloqueio de concorrência.
 | GET | `/api/export` | Baixa em `.xlsx` os registros que atendem aos mesmos filtros/ordenação de `/api/items`, sem paginação (todos os que passam pelo filtro) |
 | GET | `/api/analytics/fechamento-geral/export` | Baixa uma cópia da planilha-base somente com os registros do Fechamento Geral, preservando a Tabela e sua formatação |
 | GET | `/api/excel-status` | Diagnóstico: mostra se o Excel foi localizado e em qual caminho (útil para depurar problemas de OneDrive) |
+| GET | `/api/ativacao/records` | Lista as atividades com filtros e paginação |
+| POST | `/api/ativacao/records` | Insere uma atividade em `ATIVACAO.xlsx` |
+| PATCH/DELETE | `/api/ativacao/records/<id>` | Edita ou exclui uma atividade |
+| GET | `/api/ativacao/dashboard` | Dados dos gráficos de Ativação filtrados por data de execução ou agendamento |
+| GET | `/api/ativacao/export` | Exporta os registros de Ativação filtrados |
 
 ---
 
@@ -110,6 +120,17 @@ Com `EXCEL_SEARCH_ROOTS=` vazio, cada usuário procura no próprio OneDrive.
 Isso permite distribuir o mesmo `.exe` e o mesmo `.env` para computadores com
 caminhos diferentes, desde que a biblioteca compartilhada esteja sincronizada
 e o arquivo mantenha o nome `REDE_B2B.xlsx`.
+
+A Ativação possui descoberta independente. Com `ATIVACAO_PATH=` em branco,
+o aplicativo procura `ATIVACAO.xlsx` ao lado do `.exe`, na pasta do aplicativo,
+na Área de Trabalho, em Documentos e nas pastas sincronizadas do OneDrive. Isso
+permite compartilhar o `.xlsx` com outro usuário do executável sem configurar o
+nome de usuário ou um caminho fixo. Para fixar um local, use:
+
+```ini
+ATIVACAO_PATH=C:\caminho\completo\ATIVACAO.xlsx
+ATIVACAO_FILENAME=ATIVACAO.xlsx
+```
 
 O gráfico **Resumo do Dia Útil Anterior** ignora sábados, domingos e feriados
 públicos brasileiros. Nesse resumo, **Concluídos** usa `DATACONCLUSAO`; **PCC**,

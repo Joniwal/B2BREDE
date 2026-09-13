@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>REDEB2B — Ativação</title>
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/icon-32.png') }}">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/styles.css') }}?v=ativacao-2" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/ativacao.css') }}?v=ativacao-2" rel="stylesheet">
+</head>
+<body>
+  <nav class="topbar ativacao-topbar d-flex align-items-center justify-content-between px-3">
+    <div class="d-flex align-items-center gap-2">
+      <span class="topbar-brand">REDE<span class="text-accent">B2B</span></span>
+      <span class="badge rounded-pill ativacao-badge"><i class="bi bi-lightning-charge-fill"></i> Ativação</span>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <a href="/" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Painel principal</a>
+      <a href="/dashboard" class="btn btn-outline-primary btn-sm"><i class="bi bi-bar-chart-line"></i> Dashboard B2B</a>
+      <button class="btn btn-outline-secondary btn-sm" id="btnAtualizarAtivacao" type="button"><i class="bi bi-arrow-clockwise"></i> Atualizar</button>
+      <button class="btn btn-ativacao btn-sm" id="btnNovaAtivacao" type="button"><i class="bi bi-plus-lg"></i> Nova atividade</button>
+      <button class="btn btn-outline-danger btn-sm btn-encerrar-app" type="button" title="Encerrar o aplicativo local"><i class="bi bi-power"></i> Encerrar aplicativo</button>
+    </div>
+  </nav>
+
+  <main class="container-fluid p-3 ativacao-page">
+    <section class="ativacao-filter-card mb-3" aria-labelledby="ativacaoFiltrosTitulo">
+      <div class="filter-card-title">
+        <div>
+          <h1 id="ativacaoFiltrosTitulo"><i class="bi bi-funnel"></i> Filtros do painel</h1>
+          <small class="text-muted">Ao abrir, o painel mostra as execuções do dia vigente.</small>
+        </div>
+        <span id="ativacaoArquivoStatus" class="text-muted">Localizando ATIVACAO.xlsx...</span>
+      </div>
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-4 col-xl-2">
+          <label for="fAtivacaoBusca" class="form-label">Busca por ID ou texto</label>
+          <input id="fAtivacaoBusca" class="form-control form-control-sm" type="search" placeholder="Cliente, cidade, técnico...">
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+          <label for="fDataExecucao" class="form-label">Data de execução</label>
+          <input id="fDataExecucao" class="form-control form-control-sm" type="date">
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+          <label for="fDataAgendamento" class="form-label">Data de agendamento</label>
+          <input id="fDataAgendamento" class="form-control form-control-sm" type="date">
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+          <label for="fAtivacaoServico" class="form-label">Serviço</label>
+          <select id="fAtivacaoServico" class="form-select form-select-sm"><option value="">Todos</option></select>
+        </div>
+        <div class="col-6 col-md-4 col-xl-1">
+          <label for="fAtivacaoTecnologia" class="form-label">Tecnologia</label>
+          <select id="fAtivacaoTecnologia" class="form-select form-select-sm"><option value="">Todas</option></select>
+        </div>
+        <div class="col-6 col-md-4 col-xl-1">
+          <label for="fAtivacaoStatus" class="form-label">Status</label>
+          <select id="fAtivacaoStatus" class="form-select form-select-sm"><option value="">Todos</option></select>
+        </div>
+        <div class="col-6 col-md-4 col-xl-1">
+          <label for="fAtivacaoFaturado" class="form-label">Faturado</label>
+          <select id="fAtivacaoFaturado" class="form-select form-select-sm"><option value="">Todos</option></select>
+        </div>
+        <div class="col-6 col-md-4 col-xl-1">
+          <label for="fAtivacaoRfs" class="form-label">Com RFS</label>
+          <select id="fAtivacaoRfs" class="form-select form-select-sm"><option value="">Todos</option></select>
+        </div>
+      </div>
+      <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
+        <button class="btn btn-ativacao btn-sm" id="btnAplicarFiltrosAtivacao" type="button"><i class="bi bi-check2"></i> Aplicar filtros</button>
+        <button class="btn btn-outline-primary btn-sm" id="btnHojeAtivacao" type="button"><i class="bi bi-calendar-day"></i> Execuções de hoje</button>
+        <button class="btn btn-outline-secondary btn-sm" id="btnMostrarTodosAtivacao" type="button"><i class="bi bi-list-ul"></i> Mostrar todos</button>
+        <button class="btn btn-outline-success btn-sm ms-auto" id="btnExportarAtivacao" type="button"><i class="bi bi-file-earmark-excel"></i> Exportar filtrados</button>
+      </div>
+    </section>
+
+    <section class="row g-3 mb-3 row-cols-2 row-cols-md-3 row-cols-xl-5" aria-label="Indicadores de ativação">
+      <div class="col"><article class="ativacao-kpi kpi-total"><i class="bi bi-collection"></i><div><span>Total</span><strong id="kpiAtivacaoTotal">0</strong></div></article></div>
+      <div class="col"><article class="ativacao-kpi kpi-ok"><i class="bi bi-check-circle"></i><div><span>Status OK</span><strong id="kpiAtivacaoOk">0</strong></div></article></div>
+      <div class="col"><article class="ativacao-kpi kpi-nok"><i class="bi bi-exclamation-circle"></i><div><span>Status NOK</span><strong id="kpiAtivacaoNok">0</strong></div></article></div>
+      <div class="col"><article class="ativacao-kpi kpi-billed"><i class="bi bi-receipt"></i><div><span>Faturadas</span><strong id="kpiAtivacaoFaturado">0</strong></div></article></div>
+      <div class="col"><article class="ativacao-kpi kpi-rfs"><i class="bi bi-file-earmark-check"></i><div><span>Com RFS</span><strong id="kpiAtivacaoRfs">0</strong></div></article></div>
+    </section>
+
+    <section class="row g-3 mb-3">
+      <div class="col-12 col-md-6 col-xl-4"><article class="ativacao-chart-card"><h2>Por status</h2><div class="chart-area"><canvas id="chartAtivacaoStatus"></canvas></div></article></div>
+      <div class="col-12 col-md-6 col-xl-4"><article class="ativacao-chart-card"><h2>Por tecnologia</h2><div class="chart-area"><canvas id="chartAtivacaoTecnologia"></canvas></div></article></div>
+      <div class="col-12 col-md-6 col-xl-4"><article class="ativacao-chart-card"><h2>Por serviço</h2><div class="chart-area"><canvas id="chartAtivacaoServico"></canvas></div></article></div>
+      <div class="col-12 col-md-6 col-xl-4"><article class="ativacao-chart-card"><h2>Por faturado</h2><div class="chart-area"><canvas id="chartAtivacaoFaturado"></canvas></div></article></div>
+      <div class="col-12 col-md-6 col-xl-4"><article class="ativacao-chart-card"><h2>Por RFS</h2><div class="chart-area"><canvas id="chartAtivacaoRfs"></canvas></div></article></div>
+      <div class="col-12 col-md-6 col-xl-4"><article class="ativacao-chart-card"><h2>Por data de encerramento</h2><div class="chart-area"><canvas id="chartAtivacaoDataExecucao"></canvas></div></article></div>
+    </section>
+
+    <section class="ativacao-table-card" aria-labelledby="ativacaoRegistrosTitulo">
+      <div class="table-card-heading">
+        <div><h2 id="ativacaoRegistrosTitulo">Registros de ativação</h2><p>Clique em visualizar para abrir o item; o botão de edição fica dentro da janela.</p></div>
+        <div class="d-flex align-items-center gap-2"><label for="ativacaoPageSize" class="text-muted mb-0">Itens por página</label><select id="ativacaoPageSize" class="form-select form-select-sm page-size"><option value="10">10</option><option value="20" selected>20</option><option value="50">50</option><option value="100">100</option></select></div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover table-sm align-middle mb-0" id="ativacaoTable">
+          <colgroup>
+            <col style="width:5.5%"><col style="width:10.5%"><col style="width:8%"><col style="width:11%">
+            <col style="width:6.5%"><col style="width:7%"><col style="width:5%"><col style="width:8%">
+            <col style="width:8%"><col style="width:5%"><col style="width:10%"><col style="width:5%">
+            <col style="width:5%"><col style="width:5.5%">
+          </colgroup>
+          <thead><tr><th>ID</th><th>Cliente</th><th>Cidade</th><th>Serviço</th><th>Tecnologia</th><th>Empresa</th><th>Status</th><th>Data agendamento</th><th>Data execução</th><th>No mês</th><th>Executado por</th><th>Faturado</th><th>Com RFS</th><th class="text-end">Ações</th></tr></thead>
+          <tbody id="ativacaoTableBody"><tr><td colspan="14" class="text-center text-muted py-4">Carregando...</td></tr></tbody>
+        </table>
+      </div>
+      <div class="table-card-footer d-flex justify-content-between align-items-center"><span id="ativacaoPaginationInfo" class="text-muted">—</span><ul class="pagination pagination-sm mb-0" id="ativacaoPagination"></ul></div>
+    </section>
+  </main>
+
+  <datalist id="listaClientesAtivacao"></datalist>
+  <datalist id="listaServicosAtivacao"></datalist>
+
+  <!-- Modal exclusivo para inserção -->
+  <div class="modal fade" id="novaAtivacaoModal" tabindex="-1" aria-labelledby="novaAtivacaoModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content"><form id="novaAtivacaoForm" novalidate>
+      <div class="modal-header ativacao-modal-header"><div><h2 class="modal-title" id="novaAtivacaoModalTitle">Nova atividade</h2><small>Informe os dados que serão gravados na tabela ATIVACAO.</small></div><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+      <div class="modal-body"><div id="novaAtivacaoError" class="alert alert-danger d-none" role="alert"></div><div class="row g-3">
+        <div class="col-md-4"><label for="newCliente" class="form-label">Cliente *</label><input id="newCliente" class="form-control" list="listaClientesAtivacao" required><div class="invalid-feedback">Campo Cliente obrigatório.</div></div>
+        <div class="col-md-4"><label for="newCidade" class="form-label">Cidade *</label><select id="newCidade" class="form-select" required><option value="">Selecione...</option></select><div class="invalid-feedback">Campo Cidade obrigatório.</div></div>
+        <div class="col-md-4"><label for="newServico" class="form-label">Serviço *</label><input id="newServico" class="form-control" list="listaServicosAtivacao" required><div class="invalid-feedback">Campo Serviço obrigatório.</div></div>
+        <div class="col-md-3"><label for="newTecnologia" class="form-label">Tecnologia *</label><select id="newTecnologia" class="form-select" required></select></div>
+        <div class="col-md-3"><label for="newEmpresa" class="form-label">Empresa *</label><select id="newEmpresa" class="form-select" required></select></div>
+        <div class="col-md-3"><label for="newStatus" class="form-label">Status *</label><select id="newStatus" class="form-select" required></select></div>
+        <div class="col-md-3"><label for="newTecnico" class="form-label">Executado por *</label><select id="newTecnico" class="form-select" required><option value="">Selecione...</option></select><div class="invalid-feedback">Campo Executado por obrigatório.</div></div>
+        <div class="col-md-3"><label for="newDataAgendamento" class="form-label">Data de agendamento *</label><input id="newDataAgendamento" class="form-control" type="date" required></div>
+        <div class="col-md-3"><label for="newDataExecucao" class="form-label">Data de execução</label><input id="newDataExecucao" class="form-control" type="date"></div>
+        <div class="col-md-2"><label for="newNoMes" class="form-label">No mês *</label><select id="newNoMes" class="form-select" required></select></div>
+        <div class="col-md-2"><label for="newFaturado" class="form-label">Faturado *</label><select id="newFaturado" class="form-select" required></select></div>
+        <div class="col-md-2"><label for="newComRfs" class="form-label">Com RFS *</label><select id="newComRfs" class="form-select" required></select></div>
+      </div></div>
+      <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-ativacao" id="btnSalvarNovaAtivacao"><i class="bi bi-check-lg"></i> Salvar atividade</button></div>
+    </form></div></div>
+  </div>
+
+  <!-- Modal separado para visualizar e editar -->
+  <div class="modal fade" id="detalheAtivacaoModal" tabindex="-1" aria-labelledby="detalheAtivacaoModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content"><form id="editarAtivacaoForm" novalidate>
+      <div class="modal-header ativacao-modal-header"><div><h2 class="modal-title" id="detalheAtivacaoModalTitle">Visualizar atividade</h2><small id="detalheAtivacaoId">ID —</small></div><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+      <div class="modal-body"><div id="editarAtivacaoError" class="alert alert-danger d-none" role="alert"></div><input type="hidden" id="editId"><div class="row g-3">
+        <div class="col-md-4"><label for="editCliente" class="form-label">Cliente *</label><input id="editCliente" class="form-control" list="listaClientesAtivacao" required></div>
+        <div class="col-md-4"><label for="editCidade" class="form-label">Cidade *</label><select id="editCidade" class="form-select" required><option value="">Selecione...</option></select></div>
+        <div class="col-md-4"><label for="editServico" class="form-label">Serviço *</label><input id="editServico" class="form-control" list="listaServicosAtivacao" required></div>
+        <div class="col-md-3"><label for="editTecnologia" class="form-label">Tecnologia *</label><select id="editTecnologia" class="form-select" required></select></div>
+        <div class="col-md-3"><label for="editEmpresa" class="form-label">Empresa *</label><select id="editEmpresa" class="form-select" required></select></div>
+        <div class="col-md-3"><label for="editStatus" class="form-label">Status *</label><select id="editStatus" class="form-select" required></select></div>
+        <div class="col-md-3"><label for="editTecnico" class="form-label">Executado por *</label><select id="editTecnico" class="form-select" required><option value="">Selecione...</option></select></div>
+        <div class="col-md-3"><label for="editDataAgendamento" class="form-label">Data de agendamento *</label><input id="editDataAgendamento" class="form-control" type="date" required></div>
+        <div class="col-md-3"><label for="editDataExecucao" class="form-label">Data de execução</label><input id="editDataExecucao" class="form-control" type="date"></div>
+        <div class="col-md-2"><label for="editNoMes" class="form-label">No mês *</label><select id="editNoMes" class="form-select" required></select></div>
+        <div class="col-md-2"><label for="editFaturado" class="form-label">Faturado *</label><select id="editFaturado" class="form-select" required></select></div>
+        <div class="col-md-2"><label for="editComRfs" class="form-label">Com RFS *</label><select id="editComRfs" class="form-select" required></select></div>
+      </div></div>
+      <div class="modal-footer d-flex justify-content-between"><button type="button" class="btn btn-outline-danger d-none" id="btnExcluirAtivacao"><i class="bi bi-trash"></i> Excluir</button><div class="ms-auto d-flex gap-2"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button><button type="button" class="btn btn-outline-primary" id="btnHabilitarEdicao"><i class="bi bi-pencil"></i> Editar dados</button><button type="submit" class="btn btn-ativacao d-none" id="btnSalvarEdicaoAtivacao"><i class="bi bi-check-lg"></i> Salvar alterações</button></div></div>
+    </form></div></div>
+  </div>
+
+  <div id="ativacaoAlertContainer" class="alert-container" aria-live="polite"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="{{ url_for('static', filename='js/ativacao.js') }}?v=ativacao-3"></script>
+  <script src="{{ url_for('static', filename='js/app-controls.js') }}?v=encerrar-1"></script>
+</body>
+</html>

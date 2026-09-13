@@ -184,7 +184,7 @@ function prepararLayoutGrupoExecutor() {
           </button>
         </h6>
         <div class="em-campo-card-body">
-          <i class="bi bi-geo-alt-fill em-campo-card-icon" aria-hidden="true"></i>
+          <i class="bi bi-person-workspace em-campo-card-icon" aria-hidden="true"></i>
           <div id="emCampoHojeTotal" class="em-campo-card-total">0</div>
           <div id="emCampoHojeData" class="em-campo-card-date">Carregando...</div>
         </div>

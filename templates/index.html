@@ -15,7 +15,7 @@
 <!-- Bootstrap Icons -->
 <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 <!-- Estilos próprios -->
-<link href="{{ url_for('static', filename='css/styles.css') }}?v=executor-card-1" rel="stylesheet">
+<link href="{{ url_for('static', filename='css/styles.css') }}?v=executor-card-2" rel="stylesheet">
 </head>
 <body>
 
@@ -41,6 +41,9 @@
     </select>
     <a href="/dashboard" class="btn btn-outline-primary btn-sm">
       <i class="bi bi-bar-chart-line"></i> Dashboard
+    </a>
+    <a href="/ativacao" class="btn btn-outline-primary btn-sm">
+      <i class="bi bi-lightning-charge"></i> Ativação
     </a>
     <button class="btn btn-outline-secondary btn-sm" id="btnAtualizar" title="Recarregar dados">
       <i class="bi bi-arrow-clockwise"></i> Atualizar
@@ -166,7 +169,7 @@
             </button>
           </h6>
           <div class="em-campo-card-body">
-            <i class="bi bi-geo-alt-fill em-campo-card-icon" aria-hidden="true"></i>
+            <i class="bi bi-person-workspace em-campo-card-icon" aria-hidden="true"></i>
             <div id="emCampoHojeTotal" class="em-campo-card-total">0</div>
             <div id="emCampoHojeData" class="em-campo-card-date">Carregando...</div>
           </div>
@@ -240,7 +243,7 @@
 <!-- Chart.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <!-- Lógica da aplicação -->
-<script src="{{ url_for('static', filename='js/main.js') }}?v=executor-card-1"></script>
+<script src="{{ url_for('static', filename='js/main.js') }}?v=executor-card-2"></script>
 <script src="{{ url_for('static', filename='js/app-controls.js') }}?v=encerrar-1"></script>
 </body>
 </html>

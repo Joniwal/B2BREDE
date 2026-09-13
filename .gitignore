@@ -23,4 +23,6 @@ Thumbs.db
 # e sempre recriáveis a partir do código-fonte, não precisam ir para o Git.
 build/
 dist/
+build_codex/
+dist_codex/
 *.spec

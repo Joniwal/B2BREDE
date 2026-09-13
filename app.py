@@ -70,6 +70,10 @@ def create_app():
     def analises():
         return render_template("analises.html")
 
+    @app.route("/ativacao")
+    def ativacao():
+        return render_template("ativacao.html")
+
     @app.post("/api/shutdown")
     def shutdown():
         # Impede que outro computador da rede encerre a aplicação. O botão
