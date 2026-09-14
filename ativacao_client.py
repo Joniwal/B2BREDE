@@ -99,6 +99,20 @@ def _text(value) -> str:
     return "" if value is None else str(value).strip()
 
 
+def _parse_id(value, *, required=False) -> int | None:
+    raw = _text(value)
+    if not raw:
+        if required:
+            raise DataClientError("Campo ID obrigatório.", status_code=400)
+        return None
+    if not raw.isdigit() or int(raw) < 1:
+        raise DataClientError(
+            "ID inválido. Informe um número inteiro positivo.",
+            status_code=400,
+        )
+    return int(raw)
+
+
 def _parse_date(value, *, required=False, label="Data") -> date | None:
     if value is None or _text(value) == "":
         if required:
@@ -376,6 +390,10 @@ class AtivacaoClient:
         merged = {field: value for field, value in (current or {}).items() if field in FIELDS}
         merged.update(payload or {})
         result = {}
+        result["id"] = _parse_id(
+            merged.get("id"),
+            required=current is not None or "id" in (payload or {}),
+        )
         for field, label in REQUIRED_LABELS.items():
             if field == "data_agendamento":
                 result[field] = _parse_date(merged.get(field), required=True, label=label)
@@ -447,7 +465,14 @@ class AtivacaoClient:
             path, workbook, sheet, table, mapping = self._load()
             rows = self._read_rows(sheet, table, mapping)
             numeric_ids = [item["id"] for item in rows if isinstance(item["id"], int)]
-            normalized["id"] = (max(numeric_ids) if numeric_ids else 0) + 1
+            if normalized["id"] is None:
+                normalized["id"] = (max(numeric_ids) if numeric_ids else 0) + 1
+            elif any(str(item["id"]) == str(normalized["id"]) for item in rows):
+                workbook.close()
+                raise DataClientError(
+                    f"Já existe uma atividade com o ID {normalized['id']}.",
+                    status_code=409,
+                )
             _min_col, min_row, _max_col, max_row = range_boundaries(table.ref)
             used_rows = {item["_row"] for item in rows}
             target_row = next((row for row in range(min_row + 1, max_row + 1) if row not in used_rows), max_row + 1)
@@ -472,14 +497,23 @@ class AtivacaoClient:
                 workbook.close()
                 raise DataClientError(f"Registro ID {item_id} não encontrado.", status_code=404)
             normalized = self._validate(payload, current=current)
-            normalized["id"] = current["id"]
+            if any(
+                item["_row"] != current["_row"]
+                and str(item["id"]) == str(normalized["id"])
+                for item in rows
+            ):
+                workbook.close()
+                raise DataClientError(
+                    f"Já existe uma atividade com o ID {normalized['id']}.",
+                    status_code=409,
+                )
             for field in FIELDS:
                 cell = sheet.cell(current["_row"], mapping[field])
                 cell.value = self._excel_value(field, normalized[field])
                 if field in {"data_agendamento", "data_execucao"}:
                     cell.number_format = "dd/mm/yyyy"
             self._save_atomic(path, workbook)
-        return self.get(item_id)
+        return self.get(normalized["id"])
 
     def delete(self, item_id) -> dict:
         with ATIVACAO_LOCK:

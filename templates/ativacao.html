@@ -61,7 +61,7 @@
           <select id="fAtivacaoStatus" class="form-select form-select-sm"><option value="">Todos</option></select>
         </div>
         <div class="col-6 col-md-4 col-xl-1">
-          <label for="fAtivacaoFaturado" class="form-label">Faturado</label>
+          <label for="fAtivacaoFaturado" class="form-label">Campo</label>
           <select id="fAtivacaoFaturado" class="form-select form-select-sm"><option value="">Todos</option></select>
         </div>
         <div class="col-6 col-md-4 col-xl-1">
@@ -81,7 +81,7 @@
       <div class="col"><article class="ativacao-kpi kpi-total"><i class="bi bi-collection"></i><div><span>Total</span><strong id="kpiAtivacaoTotal">0</strong></div></article></div>
       <div class="col"><article class="ativacao-kpi kpi-ok"><i class="bi bi-check-circle"></i><div><span>Status OK</span><strong id="kpiAtivacaoOk">0</strong></div></article></div>
       <div class="col"><article class="ativacao-kpi kpi-nok"><i class="bi bi-exclamation-circle"></i><div><span>Status NOK</span><strong id="kpiAtivacaoNok">0</strong></div></article></div>
-      <div class="col"><article class="ativacao-kpi kpi-billed"><i class="bi bi-receipt"></i><div><span>Faturadas</span><strong id="kpiAtivacaoFaturado">0</strong></div></article></div>
+      <div class="col"><article class="ativacao-kpi kpi-billed"><i class="bi bi-receipt"></i><div><span>Campo</span><strong id="kpiAtivacaoFaturado">0</strong></div></article></div>
       <div class="col"><article class="ativacao-kpi kpi-rfs"><i class="bi bi-file-earmark-check"></i><div><span>Com RFS</span><strong id="kpiAtivacaoRfs">0</strong></div></article></div>
     </section>
 
@@ -89,7 +89,7 @@
       <div class="col-12 col-md-6 col-xl-4"><article class="ativacao-chart-card"><h2>Por status</h2><div class="chart-area"><canvas id="chartAtivacaoStatus"></canvas></div></article></div>
       <div class="col-12 col-md-6 col-xl-4"><article class="ativacao-chart-card"><h2>Por tecnologia</h2><div class="chart-area"><canvas id="chartAtivacaoTecnologia"></canvas></div></article></div>
       <div class="col-12 col-md-6 col-xl-4"><article class="ativacao-chart-card"><h2>Por serviço</h2><div class="chart-area"><canvas id="chartAtivacaoServico"></canvas></div></article></div>
-      <div class="col-12 col-md-6 col-xl-4"><article class="ativacao-chart-card"><h2>Por faturado</h2><div class="chart-area"><canvas id="chartAtivacaoFaturado"></canvas></div></article></div>
+      <div class="col-12 col-md-6 col-xl-4"><article class="ativacao-chart-card"><h2>Campo</h2><div class="chart-area"><canvas id="chartAtivacaoFaturado"></canvas></div></article></div>
       <div class="col-12 col-md-6 col-xl-4"><article class="ativacao-chart-card"><h2>Por RFS</h2><div class="chart-area"><canvas id="chartAtivacaoRfs"></canvas></div></article></div>
       <div class="col-12 col-md-6 col-xl-4"><article class="ativacao-chart-card"><h2>Por data de encerramento</h2><div class="chart-area"><canvas id="chartAtivacaoDataExecucao"></canvas></div></article></div>
     </section>
@@ -107,7 +107,7 @@
             <col style="width:8%"><col style="width:5%"><col style="width:10%"><col style="width:5%">
             <col style="width:5%"><col style="width:5.5%">
           </colgroup>
-          <thead><tr><th>ID</th><th>Cliente</th><th>Cidade</th><th>Serviço</th><th>Tecnologia</th><th>Empresa</th><th>Status</th><th>Data agendamento</th><th>Data execução</th><th>No mês</th><th>Executado por</th><th>Faturado</th><th>Com RFS</th><th class="text-end">Ações</th></tr></thead>
+          <thead><tr><th>ID</th><th>Cliente</th><th>Cidade</th><th>Serviço</th><th>Tecnologia</th><th>Empresa</th><th>Status</th><th>Data agendamento</th><th>Data execução</th><th>No mês</th><th>Executado por</th><th>Campo</th><th>Com RFS</th><th class="text-end">Ações</th></tr></thead>
           <tbody id="ativacaoTableBody"><tr><td colspan="14" class="text-center text-muted py-4">Carregando...</td></tr></tbody>
         </table>
       </div>
@@ -123,9 +123,10 @@
     <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content"><form id="novaAtivacaoForm" novalidate>
       <div class="modal-header ativacao-modal-header"><div><h2 class="modal-title" id="novaAtivacaoModalTitle">Nova atividade</h2><small>Informe os dados que serão gravados na tabela ATIVACAO.</small></div><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
       <div class="modal-body"><div id="novaAtivacaoError" class="alert alert-danger d-none" role="alert"></div><div class="row g-3">
-        <div class="col-md-4"><label for="newCliente" class="form-label">Cliente *</label><input id="newCliente" class="form-control" list="listaClientesAtivacao" required><div class="invalid-feedback">Campo Cliente obrigatório.</div></div>
-        <div class="col-md-4"><label for="newCidade" class="form-label">Cidade *</label><select id="newCidade" class="form-select" required><option value="">Selecione...</option></select><div class="invalid-feedback">Campo Cidade obrigatório.</div></div>
-        <div class="col-md-4"><label for="newServico" class="form-label">Serviço *</label><input id="newServico" class="form-control" list="listaServicosAtivacao" required><div class="invalid-feedback">Campo Serviço obrigatório.</div></div>
+        <div class="col-md-3"><label for="newId" class="form-label">ID *</label><input id="newId" class="form-control" type="number" min="1" step="1" inputmode="numeric" required><div class="invalid-feedback">Informe um ID numérico válido.</div></div>
+        <div class="col-md-3"><label for="newCliente" class="form-label">Cliente *</label><input id="newCliente" class="form-control" list="listaClientesAtivacao" required><div class="invalid-feedback">Campo Cliente obrigatório.</div></div>
+        <div class="col-md-3"><label for="newCidade" class="form-label">Cidade *</label><select id="newCidade" class="form-select" required><option value="">Selecione...</option></select><div class="invalid-feedback">Campo Cidade obrigatório.</div></div>
+        <div class="col-md-3"><label for="newServico" class="form-label">Serviço *</label><input id="newServico" class="form-control" list="listaServicosAtivacao" required><div class="invalid-feedback">Campo Serviço obrigatório.</div></div>
         <div class="col-md-3"><label for="newTecnologia" class="form-label">Tecnologia *</label><select id="newTecnologia" class="form-select" required></select></div>
         <div class="col-md-3"><label for="newEmpresa" class="form-label">Empresa *</label><select id="newEmpresa" class="form-select" required></select></div>
         <div class="col-md-3"><label for="newStatus" class="form-label">Status *</label><select id="newStatus" class="form-select" required></select></div>
@@ -133,7 +134,7 @@
         <div class="col-md-3"><label for="newDataAgendamento" class="form-label">Data de agendamento *</label><input id="newDataAgendamento" class="form-control" type="date" required></div>
         <div class="col-md-3"><label for="newDataExecucao" class="form-label">Data de execução</label><input id="newDataExecucao" class="form-control" type="date"></div>
         <div class="col-md-2"><label for="newNoMes" class="form-label">No mês *</label><select id="newNoMes" class="form-select" required></select></div>
-        <div class="col-md-2"><label for="newFaturado" class="form-label">Faturado *</label><select id="newFaturado" class="form-select" required></select></div>
+        <div class="col-md-2"><label for="newFaturado" class="form-label">Campo *</label><select id="newFaturado" class="form-select" required></select></div>
         <div class="col-md-2"><label for="newComRfs" class="form-label">Com RFS *</label><select id="newComRfs" class="form-select" required></select></div>
       </div></div>
       <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-ativacao" id="btnSalvarNovaAtivacao"><i class="bi bi-check-lg"></i> Salvar atividade</button></div>
@@ -144,10 +145,11 @@
   <div class="modal fade" id="detalheAtivacaoModal" tabindex="-1" aria-labelledby="detalheAtivacaoModalTitle" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content"><form id="editarAtivacaoForm" novalidate>
       <div class="modal-header ativacao-modal-header"><div><h2 class="modal-title" id="detalheAtivacaoModalTitle">Visualizar atividade</h2><small id="detalheAtivacaoId">ID —</small></div><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
-      <div class="modal-body"><div id="editarAtivacaoError" class="alert alert-danger d-none" role="alert"></div><input type="hidden" id="editId"><div class="row g-3">
-        <div class="col-md-4"><label for="editCliente" class="form-label">Cliente *</label><input id="editCliente" class="form-control" list="listaClientesAtivacao" required></div>
-        <div class="col-md-4"><label for="editCidade" class="form-label">Cidade *</label><select id="editCidade" class="form-select" required><option value="">Selecione...</option></select></div>
-        <div class="col-md-4"><label for="editServico" class="form-label">Serviço *</label><input id="editServico" class="form-control" list="listaServicosAtivacao" required></div>
+      <div class="modal-body"><div id="editarAtivacaoError" class="alert alert-danger d-none" role="alert"></div><input type="hidden" id="editOriginalId"><div class="row g-3">
+        <div class="col-md-3"><label for="editId" class="form-label">ID *</label><input id="editId" class="form-control" type="number" min="1" step="1" inputmode="numeric" required><div class="invalid-feedback">Informe um ID numérico válido.</div></div>
+        <div class="col-md-3"><label for="editCliente" class="form-label">Cliente *</label><input id="editCliente" class="form-control" list="listaClientesAtivacao" required></div>
+        <div class="col-md-3"><label for="editCidade" class="form-label">Cidade *</label><select id="editCidade" class="form-select" required><option value="">Selecione...</option></select></div>
+        <div class="col-md-3"><label for="editServico" class="form-label">Serviço *</label><input id="editServico" class="form-control" list="listaServicosAtivacao" required></div>
         <div class="col-md-3"><label for="editTecnologia" class="form-label">Tecnologia *</label><select id="editTecnologia" class="form-select" required></select></div>
         <div class="col-md-3"><label for="editEmpresa" class="form-label">Empresa *</label><select id="editEmpresa" class="form-select" required></select></div>
         <div class="col-md-3"><label for="editStatus" class="form-label">Status *</label><select id="editStatus" class="form-select" required></select></div>
@@ -155,7 +157,7 @@
         <div class="col-md-3"><label for="editDataAgendamento" class="form-label">Data de agendamento *</label><input id="editDataAgendamento" class="form-control" type="date" required></div>
         <div class="col-md-3"><label for="editDataExecucao" class="form-label">Data de execução</label><input id="editDataExecucao" class="form-control" type="date"></div>
         <div class="col-md-2"><label for="editNoMes" class="form-label">No mês *</label><select id="editNoMes" class="form-select" required></select></div>
-        <div class="col-md-2"><label for="editFaturado" class="form-label">Faturado *</label><select id="editFaturado" class="form-select" required></select></div>
+        <div class="col-md-2"><label for="editFaturado" class="form-label">Campo</label><select id="editFaturado" class="form-select" required></select></div>
         <div class="col-md-2"><label for="editComRfs" class="form-label">Com RFS *</label><select id="editComRfs" class="form-select" required></select></div>
       </div></div>
       <div class="modal-footer d-flex justify-content-between"><button type="button" class="btn btn-outline-danger d-none" id="btnExcluirAtivacao"><i class="bi bi-trash"></i> Excluir</button><div class="ms-auto d-flex gap-2"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button><button type="button" class="btn btn-outline-primary" id="btnHabilitarEdicao"><i class="bi bi-pencil"></i> Editar dados</button><button type="submit" class="btn btn-ativacao d-none" id="btnSalvarEdicaoAtivacao"><i class="bi bi-check-lg"></i> Salvar alterações</button></div></div>
@@ -165,7 +167,7 @@
   <div id="ativacaoAlertContainer" class="alert-container" aria-live="polite"></div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-  <script src="{{ url_for('static', filename='js/ativacao.js') }}?v=ativacao-3"></script>
+  <script src="{{ url_for('static', filename='js/ativacao.js') }}?v=ativacao-4"></script>
   <script src="{{ url_for('static', filename='js/app-controls.js') }}?v=encerrar-1"></script>
 </body>
 </html>

@@ -262,6 +262,7 @@
 
   function payload(prefix) {
     return {
+      id: byId(`${prefix}Id`).value.trim(),
       cliente: byId(`${prefix}Cliente`).value.trim(),
       cidade: byId(`${prefix}Cidade`).value.trim(),
       servico: byId(`${prefix}Servico`).value.trim(),
@@ -279,7 +280,7 @@
 
   function setFormValues(prefix, item) {
     const mapping = {
-      Cliente: "cliente", Cidade: "cidade", Servico: "servico", Tecnologia: "tecnologia",
+      Id: "id", Cliente: "cliente", Cidade: "cidade", Servico: "servico", Tecnologia: "tecnologia",
       Empresa: "empresa", Status: "status", DataAgendamento: "data_agendamento",
       DataExecucao: "data_execucao", NoMes: "no_mes", Tecnico: "tecnico",
       Faturado: "faturado", ComRfs: "com_rfs",
@@ -310,7 +311,7 @@
 
   function openDetailModal(item) {
     if (!item) return;
-    byId("editId").value = item.id;
+    byId("editOriginalId").value = item.id;
     byId("detalheAtivacaoId").textContent = `ID ${item.id}`;
     byId("editarAtivacaoForm").classList.remove("was-validated");
     byId("editarAtivacaoError").classList.add("d-none");
@@ -352,7 +353,7 @@
     const form = byId("editarAtivacaoForm");
     form.classList.add("was-validated");
     if (!form.checkValidity()) return;
-    const id = byId("editId").value;
+    const id = byId("editOriginalId").value;
     const button = byId("btnSalvarEdicaoAtivacao");
     const errorBox = byId("editarAtivacaoError");
     button.disabled = true;
@@ -372,7 +373,7 @@
   }
 
   async function deleteRecord() {
-    const id = byId("editId").value;
+    const id = byId("editOriginalId").value;
     if (!id || !window.confirm(`Excluir definitivamente a atividade ID ${id}?`)) return;
     try {
       await api(`/api/ativacao/records/${id}`, { method: "DELETE" });

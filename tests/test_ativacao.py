@@ -69,6 +69,23 @@ class AtivacaoClientTests(unittest.TestCase):
         with self.assertRaises(DataClientError):
             self.client.get(1)
 
+    def test_manual_id_can_be_created_and_changed_without_duplicates(self):
+        created = self.client.create(self.payload(id=2224567, cliente="ID MANUAL"))
+        self.assertEqual(created["id"], 2224567)
+
+        with self.assertRaisesRegex(DataClientError, "Já existe uma atividade com o ID 2224567"):
+            self.client.create(self.payload(id=2224567, cliente="ID REPETIDO"))
+
+        updated = self.client.update(2224567, {"id": 2224568})
+        self.assertEqual(updated["id"], 2224568)
+        with self.assertRaises(DataClientError):
+            self.client.get(2224567)
+
+        with self.assertRaisesRegex(DataClientError, "ID inválido"):
+            self.client.create(self.payload(id="12A"))
+        with self.assertRaisesRegex(DataClientError, "Campo ID obrigatório"):
+            self.client.create(self.payload(id=""))
+
     def test_filters_by_execution_and_schedule_dates(self):
         today = date.today()
         yesterday = today - timedelta(days=1)
