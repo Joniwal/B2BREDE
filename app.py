@@ -16,14 +16,6 @@ import webbrowser
 from flask import Flask, render_template, jsonify, request
 from dotenv import load_dotenv
 
-load_dotenv(override=True)
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
-logger = logging.getLogger("redeb2b.app")
-
 
 def _base_dir():
     """Pasta base para localizar templates/static — funciona tanto rodando
@@ -35,6 +27,27 @@ def _base_dir():
         return getattr(sys, "_MEIPASS", os.path.dirname(sys.executable))
     return os.path.dirname(os.path.abspath(__file__))
 
+
+def _exe_dir():
+    """Pasta onde o .exe/.py REAL está — diferente de _MEIPASS no modo
+    --onefile, que é uma pasta temporária recriada a cada execução. O .env
+    tem que ser lido daqui, senão um .env editado ao lado do .exe nunca é
+    encontrado quando o app está empacotado."""
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+# Carrega o .env explicitamente da pasta do executável/script — NÃO do cwd
+# (que muda dependendo de como o .exe foi aberto: atalho, duplo clique,
+# Task Scheduler, "Executar como administrador" etc.) e NÃO do _MEIPASS.
+load_dotenv(os.path.join(_exe_dir(), ".env"), override=True)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger("redeb2b.app")
 
 BASE_DIR = _base_dir()
 

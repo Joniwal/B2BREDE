@@ -170,8 +170,12 @@ def _dia_util_anterior(data_referencia=None):
         }
         if incluir_opcionais:
             parametros["categories"] = (PUBLIC, OPTIONAL)
+
+        def _carregar_feriados(params):
+            return holidays_lib.country_holidays("BR", **params)
+
         try:
-            feriados.update(holidays_lib.country_holidays("BR", **parametros).keys())
+            feriados.update(_carregar_feriados(parametros).keys())
         except (ValueError, NotImplementedError) as exc:
             # Uma subdivisão inválida não derruba o dashboard: usa ao menos o
             # calendário nacional e registra o problema no log.
@@ -181,7 +185,29 @@ def _dia_util_anterior(data_referencia=None):
                 exc,
             )
             parametros["subdiv"] = None
-            feriados.update(holidays_lib.country_holidays("BR", **parametros).keys())
+            try:
+                feriados.update(_carregar_feriados(parametros).keys())
+            except FileNotFoundError as exc2:
+                logger.warning(
+                    "Tradução pt_BR do pacote 'holidays' indisponível (%s); "
+                    "usando nomes de feriados no idioma padrão do pacote.",
+                    exc2,
+                )
+                parametros.pop("language", None)
+                feriados.update(_carregar_feriados(parametros).keys())
+        except FileNotFoundError as exc:
+            # Arquivo de tradução pt_BR não instalado/incompleto nesta máquina
+            # (comum dependendo da versão/empacotamento do pacote 'holidays').
+            # As datas dos feriados continuam corretas; só o nome fica em
+            # inglês (ou no idioma padrão do pacote) até a dependência ser
+            # atualizada.
+            logger.warning(
+                "Tradução pt_BR do pacote 'holidays' indisponível (%s); "
+                "usando nomes de feriados no idioma padrão do pacote.",
+                exc,
+            )
+            parametros.pop("language", None)
+            feriados.update(_carregar_feriados(parametros).keys())
 
     datas_extras = os.getenv("BUSINESS_HOLIDAYS", "").strip()
     if datas_extras:

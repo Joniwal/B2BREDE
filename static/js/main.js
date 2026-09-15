@@ -468,7 +468,7 @@ async function loadItems() {
     renderPagination(data.total, data.page, data.page_size);
   } catch (err) {
     document.getElementById("itemsTableBody").innerHTML =
-      `<tr><td colspan="7" class="text-center text-danger py-4">Erro ao carregar registros.</td></tr>`;
+      `<tr><td colspan="8" class="text-center text-danger py-4">Erro ao carregar registros.</td></tr>`;
   }
 }
 
@@ -516,7 +516,7 @@ function statusColor(status) {
 function renderTable(items) {
   const tbody = document.getElementById("itemsTableBody");
   if (!items || items.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">Nenhum registro encontrado.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">Nenhum registro encontrado.</td></tr>`;
     return;
   }
   tbody.innerHTML = items.map((item) => `
@@ -527,6 +527,7 @@ function renderTable(items) {
       <td>${escapeHtml(item.EXECUTADOPOR)}</td>
       <td><span class="status-badge" style="background-color:${statusColor(item.STATUS)};">${escapeHtml(item.STATUS || "—")}</span></td>
       <td>${formatDateBR(item.DATAAGENDAMENTO)}</td>
+      <td class="text-center">${String(item.NUMDRAFT || "").trim() ? "Sim" : "Não"}</td>
       <td class="text-end">
         <i class="bi bi-eye action-icon" title="Ver / editar" data-action="view" data-id="${escapeHtml(item.IDCLIENTE)}"></i>
       </td>

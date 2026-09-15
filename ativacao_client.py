@@ -68,6 +68,7 @@ FIXED_OPTIONS = {
         "LUCAS SILVA ANDRADE",
         "MARCOS ROBERTO HOLTMAN",
         "ERENILSON SANT'ANA",
+        "RS TELECOM"
     ],
 }
 
