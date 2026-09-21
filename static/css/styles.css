@@ -297,6 +297,24 @@ body {
 .em-campo-card {
   border-left: 0;
   min-height: 100%;
+  cursor: pointer;
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.em-campo-card:hover {
+  border-color: rgba(47, 90, 168, .4);
+  box-shadow: 0 5px 14px rgba(47, 90, 168, .14);
+  transform: translateY(-1px);
+}
+
+.em-campo-card:focus-visible {
+  outline: 3px solid rgba(47, 90, 168, .28);
+  outline-offset: 2px;
+}
+
+.em-campo-card.is-filtered {
+  border-color: #2f5aa8;
+  box-shadow: 0 0 0 2px rgba(47, 90, 168, .14);
 }
 
 .em-campo-export-button {

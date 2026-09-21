@@ -123,7 +123,7 @@
     <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content"><form id="novaAtivacaoForm" novalidate>
       <div class="modal-header ativacao-modal-header"><div><h2 class="modal-title" id="novaAtivacaoModalTitle">Nova atividade</h2><small>Informe os dados que serão gravados na tabela ATIVACAO.</small></div><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
       <div class="modal-body"><div id="novaAtivacaoError" class="alert alert-danger d-none" role="alert"></div><div class="row g-3">
-        <div class="col-md-3"><label for="newId" class="form-label">ID *</label><input id="newId" class="form-control" type="number" min="1" step="1" inputmode="numeric" required><div class="invalid-feedback">Informe um ID numérico válido.</div></div>
+        <div class="col-md-3"><label for="newId" class="form-label">ID *</label><input id="newId" class="form-control" type="text" autocomplete="off" spellcheck="false" required><div class="invalid-feedback">Campo ID obrigatório.</div></div>
         <div class="col-md-3"><label for="newCliente" class="form-label">Cliente *</label><input id="newCliente" class="form-control" list="listaClientesAtivacao" required><div class="invalid-feedback">Campo Cliente obrigatório.</div></div>
         <div class="col-md-3"><label for="newCidade" class="form-label">Cidade *</label><select id="newCidade" class="form-select" required><option value="">Selecione...</option></select><div class="invalid-feedback">Campo Cidade obrigatório.</div></div>
         <div class="col-md-3"><label for="newServico" class="form-label">Serviço *</label><input id="newServico" class="form-control" list="listaServicosAtivacao" required><div class="invalid-feedback">Campo Serviço obrigatório.</div></div>
@@ -146,7 +146,7 @@
     <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content"><form id="editarAtivacaoForm" novalidate>
       <div class="modal-header ativacao-modal-header"><div><h2 class="modal-title" id="detalheAtivacaoModalTitle">Visualizar atividade</h2><small id="detalheAtivacaoId">ID —</small></div><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
       <div class="modal-body"><div id="editarAtivacaoError" class="alert alert-danger d-none" role="alert"></div><input type="hidden" id="editOriginalId"><div class="row g-3">
-        <div class="col-md-3"><label for="editId" class="form-label">ID *</label><input id="editId" class="form-control" type="number" min="1" step="1" inputmode="numeric" required><div class="invalid-feedback">Informe um ID numérico válido.</div></div>
+        <div class="col-md-3"><label for="editId" class="form-label">ID *</label><input id="editId" class="form-control" type="text" autocomplete="off" spellcheck="false" required><div class="invalid-feedback">Campo ID obrigatório.</div></div>
         <div class="col-md-3"><label for="editCliente" class="form-label">Cliente *</label><input id="editCliente" class="form-control" list="listaClientesAtivacao" required></div>
         <div class="col-md-3"><label for="editCidade" class="form-label">Cidade *</label><select id="editCidade" class="form-select" required><option value="">Selecione...</option></select></div>
         <div class="col-md-3"><label for="editServico" class="form-label">Serviço *</label><input id="editServico" class="form-control" list="listaServicosAtivacao" required></div>
@@ -167,7 +167,7 @@
   <div id="ativacaoAlertContainer" class="alert-container" aria-live="polite"></div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-  <script src="{{ url_for('static', filename='js/ativacao.js') }}?v=ativacao-4"></script>
+  <script src="{{ url_for('static', filename='js/ativacao.js') }}?v=ativacao-5"></script>
   <script src="{{ url_for('static', filename='js/app-controls.js') }}?v=encerrar-1"></script>
 </body>
 </html>

@@ -100,18 +100,21 @@ def _text(value) -> str:
     return "" if value is None else str(value).strip()
 
 
-def _parse_id(value, *, required=False) -> int | None:
+def _parse_id(value, *, required=False) -> int | str | None:
     raw = _text(value)
     if not raw:
         if required:
             raise DataClientError("Campo ID obrigatório.", status_code=400)
         return None
-    if not raw.isdigit() or int(raw) < 1:
-        raise DataClientError(
-            "ID inválido. Informe um número inteiro positivo.",
-            status_code=400,
-        )
-    return int(raw)
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    return raw
+
+
+def _id_key(value) -> str:
+    return _text(value).casefold()
 
 
 def _parse_date(value, *, required=False, label="Data") -> date | None:
@@ -334,10 +337,11 @@ class AtivacaoClient:
             parsed = _parse_date(value)
             return parsed.isoformat() if parsed else ""
         if field == "id":
-            try:
+            if isinstance(value, int) and not isinstance(value, bool):
+                return value
+            if isinstance(value, float) and value.is_integer():
                 return int(value)
-            except (TypeError, ValueError):
-                return _text(value)
+            return _text(value)
         return _text(value)
 
     def _read_rows(self, sheet, table, mapping) -> list[dict]:
@@ -456,7 +460,7 @@ class AtivacaoClient:
 
     def get(self, item_id) -> dict:
         for item in self._all():
-            if str(item["id"]) == str(item_id):
+            if _id_key(item["id"]) == _id_key(item_id):
                 return self._clean_item(item)
         raise DataClientError(f"Registro ID {item_id} não encontrado.", status_code=404)
 
@@ -466,9 +470,12 @@ class AtivacaoClient:
             path, workbook, sheet, table, mapping = self._load()
             rows = self._read_rows(sheet, table, mapping)
             numeric_ids = [item["id"] for item in rows if isinstance(item["id"], int)]
+            existing_ids = {_id_key(item["id"]) for item in rows}
             if normalized["id"] is None:
                 normalized["id"] = (max(numeric_ids) if numeric_ids else 0) + 1
-            elif any(str(item["id"]) == str(normalized["id"]) for item in rows):
+                while _id_key(normalized["id"]) in existing_ids:
+                    normalized["id"] += 1
+            elif _id_key(normalized["id"]) in existing_ids:
                 workbook.close()
                 raise DataClientError(
                     f"Já existe uma atividade com o ID {normalized['id']}.",
@@ -493,14 +500,14 @@ class AtivacaoClient:
         with ATIVACAO_LOCK:
             path, workbook, sheet, table, mapping = self._load()
             rows = self._read_rows(sheet, table, mapping)
-            current = next((item for item in rows if str(item["id"]) == str(item_id)), None)
+            current = next((item for item in rows if _id_key(item["id"]) == _id_key(item_id)), None)
             if current is None:
                 workbook.close()
                 raise DataClientError(f"Registro ID {item_id} não encontrado.", status_code=404)
             normalized = self._validate(payload, current=current)
             if any(
                 item["_row"] != current["_row"]
-                and str(item["id"]) == str(normalized["id"])
+                and _id_key(item["id"]) == _id_key(normalized["id"])
                 for item in rows
             ):
                 workbook.close()
@@ -520,7 +527,7 @@ class AtivacaoClient:
         with ATIVACAO_LOCK:
             path, workbook, sheet, table, mapping = self._load()
             rows = self._read_rows(sheet, table, mapping)
-            current = next((item for item in rows if str(item["id"]) == str(item_id)), None)
+            current = next((item for item in rows if _id_key(item["id"]) == _id_key(item_id)), None)
             if current is None:
                 workbook.close()
                 raise DataClientError(f"Registro ID {item_id} não encontrado.", status_code=404)

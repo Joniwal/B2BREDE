@@ -359,7 +359,7 @@
     button.disabled = true;
     errorBox.classList.add("d-none");
     try {
-      await api(`/api/ativacao/records/${id}`, { method: "PATCH", body: JSON.stringify(payload("edit")) });
+      await api(`/api/ativacao/records/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(payload("edit")) });
       state.detailModal.hide();
       await loadOptions();
       await refreshAll();
@@ -376,7 +376,7 @@
     const id = byId("editOriginalId").value;
     if (!id || !window.confirm(`Excluir definitivamente a atividade ID ${id}?`)) return;
     try {
-      await api(`/api/ativacao/records/${id}`, { method: "DELETE" });
+      await api(`/api/ativacao/records/${encodeURIComponent(id)}`, { method: "DELETE" });
       state.detailModal.hide();
       state.page = 1;
       await refreshAll();

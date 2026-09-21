@@ -4,9 +4,12 @@ import unittest
 from datetime import date, timedelta
 from pathlib import Path
 from unittest.mock import patch
+from urllib.parse import quote
 
 from openpyxl import load_workbook
 
+import api
+from app import create_app
 from ativacao_client import AtivacaoClient, EXCEL_HEADERS
 from excel_client import DataClientError
 
@@ -70,21 +73,48 @@ class AtivacaoClientTests(unittest.TestCase):
             self.client.get(1)
 
     def test_manual_id_can_be_created_and_changed_without_duplicates(self):
-        created = self.client.create(self.payload(id=2224567, cliente="ID MANUAL"))
-        self.assertEqual(created["id"], 2224567)
+        created = self.client.create(self.payload(id="ATV-2224/A#01", cliente="ID MANUAL"))
+        self.assertEqual(created["id"], "ATV-2224/A#01")
 
-        with self.assertRaisesRegex(DataClientError, "Já existe uma atividade com o ID 2224567"):
-            self.client.create(self.payload(id=2224567, cliente="ID REPETIDO"))
+        with self.assertRaisesRegex(DataClientError, "Já existe uma atividade com o ID atv-2224/a#01"):
+            self.client.create(self.payload(id="atv-2224/a#01", cliente="ID REPETIDO"))
 
-        updated = self.client.update(2224567, {"id": 2224568})
-        self.assertEqual(updated["id"], 2224568)
+        updated = self.client.update("ATV-2224/A#01", {"id": "OS 2026_01+X"})
+        self.assertEqual(updated["id"], "OS 2026_01+X")
         with self.assertRaises(DataClientError):
-            self.client.get(2224567)
+            self.client.get("ATV-2224/A#01")
 
-        with self.assertRaisesRegex(DataClientError, "ID inválido"):
-            self.client.create(self.payload(id="12A"))
+        leading_zero = self.client.create(self.payload(id="00123", cliente="ZERO À ESQUERDA"))
+        self.assertEqual(leading_zero["id"], "00123")
         with self.assertRaisesRegex(DataClientError, "Campo ID obrigatório"):
             self.client.create(self.payload(id=""))
+
+    def test_api_routes_accept_encoded_special_character_id(self):
+        original_id = "OS/2026-A#01"
+        self.client.create(self.payload(id=original_id, cliente="ROTA ESPECIAL"))
+        app = create_app()
+        app.config["TESTING"] = True
+
+        with patch.object(api, "ativacao_client", self.client):
+            http = app.test_client()
+            encoded_id = quote(original_id, safe="")
+
+            response = http.get(f"/api/ativacao/records/{encoded_id}")
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.get_json()["data"]["id"], original_id)
+
+            changed_id = "RFS+ABC/02"
+            response = http.patch(
+                f"/api/ativacao/records/{encoded_id}",
+                json={"id": changed_id},
+            )
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.get_json()["data"]["id"], changed_id)
+
+            response = http.delete(
+                f"/api/ativacao/records/{quote(changed_id, safe='')}"
+            )
+            self.assertEqual(response.status_code, 200)
 
     def test_filters_by_execution_and_schedule_dates(self):
         today = date.today()
@@ -134,6 +164,7 @@ class AtivacaoClientTests(unittest.TestCase):
                 "LUCAS SILVA ANDRADE",
                 "MARCOS ROBERTO HOLTMAN",
                 "ERENILSON SANT'ANA",
+                "RS TELECOM",
             ],
         )
         with self.assertRaisesRegex(DataClientError, "Campo Cliente obrigatório"):

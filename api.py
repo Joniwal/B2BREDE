@@ -331,7 +331,7 @@ def ativacao_records():
         return jsonify({"ok": False, "error": "Erro interno ao listar ativações."}), 500
 
 
-@api_bp.route("/ativacao/records/<int:item_id>", methods=["GET"])
+@api_bp.route("/ativacao/records/<path:item_id>", methods=["GET"])
 def ativacao_get_record(item_id):
     try:
         return jsonify({"ok": True, "data": ativacao_client.get(item_id)})
@@ -355,7 +355,7 @@ def ativacao_create_record():
         return jsonify({"ok": False, "error": "Erro interno ao salvar a ativação."}), 500
 
 
-@api_bp.route("/ativacao/records/<int:item_id>", methods=["PATCH"])
+@api_bp.route("/ativacao/records/<path:item_id>", methods=["PATCH"])
 def ativacao_update_record(item_id):
     try:
         payload = request.get_json(force=True, silent=True) or {}
@@ -368,7 +368,7 @@ def ativacao_update_record(item_id):
         return jsonify({"ok": False, "error": "Erro interno ao atualizar a ativação."}), 500
 
 
-@api_bp.route("/ativacao/records/<int:item_id>", methods=["DELETE"])
+@api_bp.route("/ativacao/records/<path:item_id>", methods=["DELETE"])
 def ativacao_delete_record(item_id):
     try:
         return jsonify({"ok": True, "data": ativacao_client.delete(item_id)})

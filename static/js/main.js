@@ -155,25 +155,27 @@ document.addEventListener("DOMContentLoaded", () => {
 /** Garante o novo layout mesmo quando o Flask ainda mantém o HTML anterior
  * em cache. Após reiniciar o servidor, o template já entrega esta estrutura. */
 function prepararLayoutGrupoExecutor() {
-  if (document.getElementById("btnExportarEmCampoHoje")) return;
+  if (!document.getElementById("btnExportarEmCampoHoje")) {
+    const canvasExecutor = document.getElementById("chartExecutadoPor");
+    const canvasConclusao = document.getElementById("chartDataConclusao");
+    const colunaExecutor = canvasExecutor?.closest("[class*='col-']");
+    const colunaConclusao = canvasConclusao?.closest("[class*='col-']");
+    if (!colunaExecutor || !colunaConclusao) return;
 
-  const canvasExecutor = document.getElementById("chartExecutadoPor");
-  const canvasConclusao = document.getElementById("chartDataConclusao");
-  const colunaExecutor = canvasExecutor?.closest("[class*='col-']");
-  const colunaConclusao = canvasConclusao?.closest("[class*='col-']");
-  if (!colunaExecutor || !colunaConclusao) return;
+    colunaExecutor.classList.remove("col-lg-6", "col-md-6");
+    colunaExecutor.classList.add("col-lg-4", "col-md-7");
+    canvasExecutor.closest(".chart-canvas-box")?.classList.add("chart-canvas-box-compact");
+    const titulo = colunaExecutor.querySelector("h6");
+    if (titulo) titulo.textContent = "Por grupo executor — mês vigente";
 
-  colunaExecutor.classList.remove("col-lg-6", "col-md-6");
-  colunaExecutor.classList.add("col-lg-4", "col-md-7");
-  canvasExecutor.closest(".chart-canvas-box")?.classList.add("chart-canvas-box-compact");
-  const titulo = colunaExecutor.querySelector("h6");
-  if (titulo) titulo.textContent = "Por grupo executor — mês vigente";
-
-  colunaConclusao.classList.remove("col-lg-6", "col-md-6");
-  colunaConclusao.classList.add("col-lg-6", "col-md-12");
-  colunaExecutor.insertAdjacentHTML("afterend", `
+    colunaConclusao.classList.remove("col-lg-6", "col-md-6");
+    colunaConclusao.classList.add("col-lg-6", "col-md-12");
+    colunaExecutor.insertAdjacentHTML("afterend", `
     <div class="col-lg-2 col-md-5">
-      <div class="chart-card em-campo-card">
+      <div class="chart-card em-campo-card" id="cardEmCampoHoje"
+           role="button" tabindex="0" aria-pressed="false"
+           title="Clique para mostrar somente as atividades em campo de hoje"
+           aria-label="Filtrar registros pelas atividades em campo de hoje">
         <h6 class="d-flex align-items-start justify-content-between gap-2">
           <span>Atividades em campo hoje</span>
           <button type="button" id="btnExportarEmCampoHoje"
@@ -190,6 +192,26 @@ function prepararLayoutGrupoExecutor() {
         </div>
       </div>
     </div>`);
+  }
+
+  const cardEmCampo = document.querySelector(".em-campo-card");
+  if (cardEmCampo) {
+    cardEmCampo.id = "cardEmCampoHoje";
+    cardEmCampo.setAttribute("role", "button");
+    cardEmCampo.setAttribute("tabindex", "0");
+    cardEmCampo.setAttribute("aria-pressed", "false");
+    cardEmCampo.setAttribute("aria-label", "Filtrar registros pelas atividades em campo de hoje");
+    cardEmCampo.title = "Clique para mostrar somente as atividades em campo de hoje";
+  }
+
+  // Compatibilidade com uma versão anterior do template ainda em cache.
+  if (!document.getElementById("btnLimparFiltrosTabela")) {
+    document.getElementById("btnExportarExcel")?.insertAdjacentHTML("afterend", `
+      <button class="btn btn-outline-secondary btn-sm" id="btnLimparFiltrosTabela"
+              type="button" title="Limpar todos os filtros">
+        <i class="bi bi-x-circle"></i> Limpar filtros
+      </button>`);
+  }
 }
 
 /* -------------------------------------------------------------------- */
@@ -251,6 +273,58 @@ function clearSelectFallbackOptions(selectId) {
   select.querySelectorAll('option[data-fallback="true"]').forEach((o) => o.remove());
 }
 
+function limparTodosFiltros() {
+  ["fCliente", "fId", "fCidade", "fExecutadoPor", "fStatus", "fMes", "fDataInicio", "fDataFim"].forEach((id) => {
+    const field = document.getElementById(id);
+    if (field) field.value = "";
+  });
+  document.getElementById("quickSearch").value = "";
+  document.getElementById("quickStatusFilter").value = "";
+  state.filters = {};
+  state.page = 1;
+  atualizarEstadoCardEmCampo();
+  loadItems();
+  loadDashboard();
+}
+
+function filtrarAtividadesEmCampoHoje() {
+  const card = document.getElementById("cardEmCampoHoje");
+  const data = card?.dataset.data || document.getElementById("btnExportarEmCampoHoje")?.dataset.data;
+  if (!data) {
+    showAlert("A data das atividades em campo ainda não foi carregada.", "warning");
+    return;
+  }
+
+  ["fCliente", "fId", "fCidade", "fExecutadoPor", "fMes"].forEach((id) => {
+    document.getElementById(id).value = "";
+  });
+  document.getElementById("quickSearch").value = "";
+  setSelectValueWithFallback("fStatus", "EM CAMPO");
+  setSelectValueWithFallback("quickStatusFilter", "EM CAMPO");
+  document.getElementById("fDataInicio").value = data;
+  document.getElementById("fDataFim").value = data;
+  collectFilters();
+  state.page = 1;
+  loadItems();
+  loadDashboard();
+  document.querySelector(".table-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  showAlert("Exibindo somente as atividades em campo de hoje.", "success");
+}
+
+function atualizarEstadoCardEmCampo() {
+  const card = document.getElementById("cardEmCampoHoje");
+  if (!card) return;
+  const data = card.dataset.data || "";
+  const ativo = Boolean(
+    data
+    && normalizeStatusKey(state.filters.status) === "em campo"
+    && state.filters.data_inicio === data
+    && state.filters.data_fim === data
+  );
+  card.classList.toggle("is-filtered", ativo);
+  card.setAttribute("aria-pressed", String(ativo));
+}
+
 function bindEvents() {
   document.getElementById("btnAplicarFiltros").addEventListener("click", () => {
     collectFilters();
@@ -259,17 +333,8 @@ function bindEvents() {
     loadDashboard();
   });
 
-  document.getElementById("btnLimparFiltros").addEventListener("click", () => {
-    ["fCliente", "fId", "fCidade", "fExecutadoPor", "fStatus", "fMes", "fDataInicio", "fDataFim"].forEach((id) => {
-      document.getElementById(id).value = "";
-    });
-    document.getElementById("quickSearch").value = "";
-    document.getElementById("quickStatusFilter").value = "";
-    state.filters = {};
-    state.page = 1;
-    loadItems();
-    loadDashboard();
-  });
+  document.getElementById("btnLimparFiltros").addEventListener("click", limparTodosFiltros);
+  document.getElementById("btnLimparFiltrosTabela")?.addEventListener("click", limparTodosFiltros);
 
   document.getElementById("quickStatusFilter").addEventListener("change", (e) => {
     document.getElementById("fStatus").value = e.target.value;
@@ -368,6 +433,19 @@ function bindEvents() {
       window.open(`/api/export?${params.toString()}`, "_blank");
     });
   }
+
+  const cardEmCampo = document.getElementById("cardEmCampoHoje");
+  if (cardEmCampo) {
+    cardEmCampo.addEventListener("click", (event) => {
+      if (event.target.closest("button, a")) return;
+      filtrarAtividadesEmCampoHoje();
+    });
+    cardEmCampo.addEventListener("keydown", (event) => {
+      if (event.target !== cardEmCampo || !["Enter", " "].includes(event.key)) return;
+      event.preventDefault();
+      filtrarAtividadesEmCampoHoje();
+    });
+  }
 }
 
 function collectFilters() {
@@ -382,6 +460,7 @@ function collectFilters() {
     data_fim: document.getElementById("fDataFim").value || undefined,
     q: document.getElementById("quickSearch").value || undefined,
   };
+  atualizarEstadoCardEmCampo();
 }
 
 /* -------------------------------------------------------------------- */
@@ -629,6 +708,7 @@ function renderAtividadesEmCampoHoje(resumo) {
   const total = document.getElementById("emCampoHojeTotal");
   const data = document.getElementById("emCampoHojeData");
   const exportar = document.getElementById("btnExportarEmCampoHoje");
+  const card = document.getElementById("cardEmCampoHoje");
   if (!total || !data || !exportar) return;
 
   const dataIso = resumo?.data || "";
@@ -636,6 +716,8 @@ function renderAtividadesEmCampoHoje(resumo) {
   data.textContent = dataIso ? `Hoje — ${formatDateBR(dataIso)}` : "Data indisponível";
   exportar.dataset.data = dataIso;
   exportar.disabled = !dataIso;
+  if (card) card.dataset.data = dataIso;
+  atualizarEstadoCardEmCampo();
 }
 
 function renderKpis(kpis) {
