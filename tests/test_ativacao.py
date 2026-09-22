@@ -40,6 +40,7 @@ class AtivacaoClientTests(unittest.TestCase):
             "tecnico": "TECNICO TESTE",
             "faturado": "SIM",
             "com_rfs": "NÃO",
+            "situacao": "",
         }
         values.update(changes)
         return values
@@ -48,24 +49,26 @@ class AtivacaoClientTests(unittest.TestCase):
         self.client.list()
         workbook = load_workbook(self.path)
         sheet = workbook["ATIVACAO"]
-        self.assertEqual([sheet.cell(1, col).value for col in range(1, 14)], EXCEL_HEADERS)
+        self.assertEqual([sheet.cell(1, col).value for col in range(1, 15)], EXCEL_HEADERS)
         self.assertIn("ATIVACAO", sheet.tables)
         self.assertIn("CIDADES", workbook.sheetnames)
         self.assertEqual(workbook["CIDADES"]["A1"].value, "CIDADES")
         workbook.close()
 
     def test_create_three_edit_view_and_delete(self):
-        first = self.client.create(self.payload(cliente="ALFA"))
+        first = self.client.create(self.payload(cliente="ALFA", situacao="FALTA CONFIG"))
         second = self.client.create(self.payload(cliente="BETA", empresa="RS TELECOM", status="NOK"))
         third = self.client.create(self.payload(cliente="GAMA", servico="SIP"))
         self.assertEqual([first["id"], second["id"], third["id"]], [1, 2, 3])
         self.assertEqual(self.client.list()["total"], 3)
         self.assertEqual(self.client.get(2)["cliente"], "BETA")
+        self.assertEqual(self.client.get(1)["situacao"], "FALTA CONFIG")
 
-        updated = self.client.update(2, {"status": "OK", "faturado": "NÃO"})
+        updated = self.client.update(2, {"status": "OK", "faturado": "NÃO", "situacao": "SEM ACESSO ERB"})
         self.assertEqual(updated["status"], "OK")
         self.assertEqual(updated["faturado"], "NÃO")
         self.assertEqual(updated["cidade"], "CURITIBA")
+        self.assertEqual(updated["situacao"], "SEM ACESSO ERB")
 
         self.assertEqual(self.client.delete(1), {"id": 1, "deleted": True})
         self.assertEqual(self.client.list()["total"], 2)
@@ -115,6 +118,16 @@ class AtivacaoClientTests(unittest.TestCase):
                 f"/api/ativacao/records/{quote(changed_id, safe='')}"
             )
             self.assertEqual(response.status_code, 200)
+
+    def test_ativacao_page_exposes_situacao_in_table_and_both_modals(self):
+        app = create_app()
+        app.config["TESTING"] = True
+        response = app.test_client().get("/ativacao")
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn("<th>Situação</th>", html)
+        self.assertIn('id="newSituacao"', html)
+        self.assertIn('id="editSituacao"', html)
 
     def test_filters_by_execution_and_schedule_dates(self):
         today = date.today()
@@ -167,10 +180,41 @@ class AtivacaoClientTests(unittest.TestCase):
                 "RS TELECOM",
             ],
         )
+        self.assertEqual(
+            options["situacoes"],
+            [
+                "FALTA GOLD JUMPER", "FALTA CONFIG", "SEM ACESSO",
+                "FALTA VALIDAR", "EQPTO NÃO RETIRADO", "FALTA REDE",
+                "LOCAL FECHADO", "LOCAL NÃO EXISTE", "AGENDA FUTURA",
+                "VT VERSIONAMENTO", "SEM ACESSO ERB", "PENDÊNCIA CLIENTE",
+            ],
+        )
         with self.assertRaisesRegex(DataClientError, "Campo Cliente obrigatório"):
             self.client.create(self.payload(cliente=""))
         with self.assertRaisesRegex(DataClientError, "Data de Agendamento inválida"):
             self.client.create(self.payload(data_agendamento="31/02/2026"))
+        with self.assertRaisesRegex(DataClientError, "Valor inválido para Situação"):
+            self.client.create(self.payload(situacao="OUTRA"))
+
+    def test_existing_workbook_receives_situacao_column_without_losing_rows(self):
+        self.client.create(self.payload(id="LEG-01", cliente="CLIENTE ANTIGO"))
+        workbook = load_workbook(self.path)
+        sheet = workbook["ATIVACAO"]
+        sheet.delete_cols(14, 1)
+        sheet.tables["ATIVACAO"].ref = "A1:M2"
+        sheet.auto_filter.ref = "A1:M2"
+        workbook.save(self.path)
+        workbook.close()
+
+        result = self.client.list()
+        self.assertEqual(result["items"][0]["cliente"], "CLIENTE ANTIGO")
+        self.assertEqual(result["items"][0]["situacao"], "")
+
+        workbook = load_workbook(self.path)
+        sheet = workbook["ATIVACAO"]
+        self.assertEqual(sheet["N1"].value, "SITUAÇÃO")
+        self.assertEqual(sheet.tables["ATIVACAO"].ref, "A1:N2")
+        workbook.close()
 
     def test_automatic_discovery_finds_file_on_desktop(self):
         desktop = Path(self.temporary.name) / "Desktop"

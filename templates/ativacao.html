@@ -102,13 +102,13 @@
       <div class="table-responsive">
         <table class="table table-hover table-sm align-middle mb-0" id="ativacaoTable">
           <colgroup>
-            <col style="width:5.5%"><col style="width:10.5%"><col style="width:8%"><col style="width:11%">
-            <col style="width:6.5%"><col style="width:7%"><col style="width:5%"><col style="width:8%">
-            <col style="width:8%"><col style="width:5%"><col style="width:10%"><col style="width:5%">
-            <col style="width:5%"><col style="width:5.5%">
+            <col style="width:5%"><col style="width:9.5%"><col style="width:7%"><col style="width:9.5%">
+            <col style="width:6%"><col style="width:6%"><col style="width:4.5%"><col style="width:7%">
+            <col style="width:7%"><col style="width:4.5%"><col style="width:9%"><col style="width:4.5%">
+            <col style="width:4.5%"><col style="width:10%"><col style="width:5%">
           </colgroup>
-          <thead><tr><th>ID</th><th>Cliente</th><th>Cidade</th><th>Serviço</th><th>Tecnologia</th><th>Empresa</th><th>Status</th><th>Data agendamento</th><th>Data execução</th><th>No mês</th><th>Executado por</th><th>Campo</th><th>Com RFS</th><th class="text-end">Ações</th></tr></thead>
-          <tbody id="ativacaoTableBody"><tr><td colspan="14" class="text-center text-muted py-4">Carregando...</td></tr></tbody>
+          <thead><tr><th>ID</th><th>Cliente</th><th>Cidade</th><th>Serviço</th><th>Tecnologia</th><th>Empresa</th><th>Status</th><th>Data agendamento</th><th>Data execução</th><th>No mês</th><th>Executado por</th><th>Campo</th><th>Com RFS</th><th>Situação</th><th class="text-end">Ações</th></tr></thead>
+          <tbody id="ativacaoTableBody"><tr><td colspan="15" class="text-center text-muted py-4">Carregando...</td></tr></tbody>
         </table>
       </div>
       <div class="table-card-footer d-flex justify-content-between align-items-center"><span id="ativacaoPaginationInfo" class="text-muted">—</span><ul class="pagination pagination-sm mb-0" id="ativacaoPagination"></ul></div>
@@ -136,6 +136,7 @@
         <div class="col-md-2"><label for="newNoMes" class="form-label">No mês *</label><select id="newNoMes" class="form-select" required></select></div>
         <div class="col-md-2"><label for="newFaturado" class="form-label">Campo *</label><select id="newFaturado" class="form-select" required></select></div>
         <div class="col-md-2"><label for="newComRfs" class="form-label">Com RFS *</label><select id="newComRfs" class="form-select" required></select></div>
+        <div class="col-md-6"><label for="newSituacao" class="form-label">Situação</label><select id="newSituacao" class="form-select"><option value="">Sem situação</option></select></div>
       </div></div>
       <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-ativacao" id="btnSalvarNovaAtivacao"><i class="bi bi-check-lg"></i> Salvar atividade</button></div>
     </form></div></div>
@@ -159,6 +160,7 @@
         <div class="col-md-2"><label for="editNoMes" class="form-label">No mês *</label><select id="editNoMes" class="form-select" required></select></div>
         <div class="col-md-2"><label for="editFaturado" class="form-label">Campo</label><select id="editFaturado" class="form-select" required></select></div>
         <div class="col-md-2"><label for="editComRfs" class="form-label">Com RFS *</label><select id="editComRfs" class="form-select" required></select></div>
+        <div class="col-md-6"><label for="editSituacao" class="form-label">Situação</label><select id="editSituacao" class="form-select"><option value="">Sem situação</option></select></div>
       </div></div>
       <div class="modal-footer d-flex justify-content-between"><button type="button" class="btn btn-outline-danger d-none" id="btnExcluirAtivacao"><i class="bi bi-trash"></i> Excluir</button><div class="ms-auto d-flex gap-2"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button><button type="button" class="btn btn-outline-primary" id="btnHabilitarEdicao"><i class="bi bi-pencil"></i> Editar dados</button><button type="submit" class="btn btn-ativacao d-none" id="btnSalvarEdicaoAtivacao"><i class="bi bi-check-lg"></i> Salvar alterações</button></div></div>
     </form></div></div>
@@ -167,7 +169,7 @@
   <div id="ativacaoAlertContainer" class="alert-container" aria-live="polite"></div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-  <script src="{{ url_for('static', filename='js/ativacao.js') }}?v=ativacao-5"></script>
+  <script src="{{ url_for('static', filename='js/ativacao.js') }}?v=ativacao-situacao-1"></script>
   <script src="{{ url_for('static', filename='js/app-controls.js') }}?v=encerrar-1"></script>
 </body>
 </html>

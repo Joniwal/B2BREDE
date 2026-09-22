@@ -121,6 +121,7 @@
       fillSelect(`${prefix}NoMes`, state.options.sim_nao);
       fillSelect(`${prefix}Faturado`, state.options.sim_nao);
       fillSelect(`${prefix}ComRfs`, state.options.sim_nao);
+      fillSelect(`${prefix}Situacao`, state.options.situacoes, "Sem situação");
     });
   }
 
@@ -216,7 +217,7 @@
     state.records = new Map((data.items || []).map((item) => [String(item.id), item]));
     const body = byId("ativacaoTableBody");
     if (!data.items?.length) {
-      body.innerHTML = '<tr><td colspan="14" class="text-center text-muted py-4">Nenhum registro encontrado para os filtros selecionados.</td></tr>';
+      body.innerHTML = '<tr><td colspan="15" class="text-center text-muted py-4">Nenhum registro encontrado para os filtros selecionados.</td></tr>';
     } else {
       body.innerHTML = data.items.map((item) => `
         <tr data-id="${escapeHtml(item.id)}" title="Duplo clique para visualizar">
@@ -224,6 +225,7 @@
           <td>${escapeHtml(item.servico)}</td><td>${escapeHtml(item.tecnologia)}</td><td>${escapeHtml(item.empresa)}</td>
           <td>${badge(item.status, "OK")}</td><td>${formatDate(item.data_agendamento)}</td><td>${formatDate(item.data_execucao)}</td>
           <td>${badge(item.no_mes)}</td><td>${escapeHtml(item.tecnico)}</td><td>${badge(item.faturado)}</td><td>${badge(item.com_rfs)}</td>
+          <td title="${escapeHtml(item.situacao)}">${escapeHtml(shortText(item.situacao || "—", 18))}</td>
           <td class="text-end"><button class="btn btn-outline-primary btn-sm btn-view-ativacao" data-id="${escapeHtml(item.id)}" type="button" title="Visualizar"><i class="bi bi-eye"></i></button></td>
         </tr>`).join("");
     }
@@ -275,6 +277,7 @@
       tecnico: byId(`${prefix}Tecnico`).value.trim(),
       faturado: byId(`${prefix}Faturado`).value,
       com_rfs: byId(`${prefix}ComRfs`).value,
+      situacao: byId(`${prefix}Situacao`).value,
     };
   }
 
@@ -283,7 +286,7 @@
       Id: "id", Cliente: "cliente", Cidade: "cidade", Servico: "servico", Tecnologia: "tecnologia",
       Empresa: "empresa", Status: "status", DataAgendamento: "data_agendamento",
       DataExecucao: "data_execucao", NoMes: "no_mes", Tecnico: "tecnico",
-      Faturado: "faturado", ComRfs: "com_rfs",
+      Faturado: "faturado", ComRfs: "com_rfs", Situacao: "situacao",
     };
     Object.entries(mapping).forEach(([suffix, field]) => { byId(`${prefix}${suffix}`).value = item[field] || ""; });
   }

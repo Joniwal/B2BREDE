@@ -13,6 +13,7 @@ import sys
 import tempfile
 import threading
 import unicodedata
+from copy import copy
 from collections import Counter
 from datetime import date, datetime, time
 from pathlib import Path
@@ -30,13 +31,13 @@ ATIVACAO_LOCK = threading.RLock()
 FIELDS = [
     "id", "cliente", "cidade", "servico", "tecnologia", "empresa",
     "status", "data_agendamento", "data_execucao", "no_mes", "tecnico",
-    "faturado", "com_rfs",
+    "faturado", "com_rfs", "situacao",
 ]
 
 EXCEL_HEADERS = [
     "ID", "CLIENTES", "CIDADE", "SERVIÇO", "TECNOLOGIA", "EMPRESA",
     "STATUS", "DATA VENCIMENTO", "DATA ENCERRAMENTO", "NO MÊS",
-    "EXECUTADO POR", "FATURADO", "COM RFS",
+    "EXECUTADO POR", "FATURADO", "COM RFS", "SITUAÇÃO",
 ]
 
 HEADER_ALIASES = {
@@ -53,6 +54,7 @@ HEADER_ALIASES = {
     "tecnico": {"TECNICO", "EXECUTADO POR"},
     "faturado": {"FATURADO"},
     "com_rfs": {"COM RFS", "RFS"},
+    "situacao": {"SITUACAO"},
 }
 
 FIXED_OPTIONS = {
@@ -69,6 +71,20 @@ FIXED_OPTIONS = {
         "MARCOS ROBERTO HOLTMAN",
         "ERENILSON SANT'ANA",
         "RS TELECOM"
+    ],
+    "situacoes": [
+        "FALTA GOLD JUMPER",
+        "FALTA CONFIG",
+        "SEM ACESSO",
+        "FALTA VALIDAR",
+        "EQPTO NÃO RETIRADO",
+        "FALTA REDE",
+        "LOCAL FECHADO",
+        "LOCAL NÃO EXISTE",
+        "AGENDA FUTURA",
+        "VT VERSIONAMENTO",
+        "SEM ACESSO ERB",
+        "PENDÊNCIA CLIENTE",
     ],
 }
 
@@ -261,14 +277,14 @@ class AtivacaoClient:
         sheet = workbook.active
         sheet.title = "ATIVACAO"
         sheet.append(EXCEL_HEADERS)
-        table = Table(displayName="ATIVACAO", ref="A1:M1")
+        table = Table(displayName="ATIVACAO", ref="A1:N1")
         table.tableStyleInfo = TableStyleInfo(
             name="TableStyleMedium2", showFirstColumn=False,
             showLastColumn=False, showRowStripes=True, showColumnStripes=False,
         )
         sheet.add_table(table)
         sheet.freeze_panes = "A2"
-        widths = [13, 28, 22, 27, 15, 17, 12, 18, 18, 12, 27, 14, 14]
+        widths = [13, 28, 22, 27, 15, 17, 12, 18, 18, 12, 27, 14, 14, 25]
         for index, width in enumerate(widths, 1):
             sheet.column_dimensions[sheet.cell(1, index).column_letter].width = width
         for cell in sheet[1]:
@@ -290,6 +306,34 @@ class AtivacaoClient:
                 status_code=500,
             )
         return sheet.tables["ATIVACAO"]
+
+    @staticmethod
+    def _ensure_situacao_column(sheet, table) -> bool:
+        """Atualiza planilhas antigas acrescentando SITUAÇÃO ao fim da tabela."""
+        min_col, min_row, max_col, max_row = range_boundaries(table.ref)
+        headers = {
+            _normalize_header(sheet.cell(min_row, col).value): col
+            for col in range(min_col, max_col + 1)
+        }
+        if "SITUACAO" in headers:
+            return False
+
+        target_col = max_col + 1
+        source = sheet.cell(min_row, max_col)
+        target = sheet.cell(min_row, target_col)
+        if _normalize_header(target.value) != "SITUACAO":
+            target.value = "SITUAÇÃO"
+            target._style = copy(source._style)
+            target.number_format = source.number_format
+            target.alignment = copy(source.alignment)
+            target.protection = copy(source.protection)
+            sheet.column_dimensions[target.column_letter].width = 25
+        table.ref = (
+            f"{sheet.cell(min_row, min_col).coordinate}:"
+            f"{sheet.cell(max_row, target_col).coordinate}"
+        )
+        sheet.auto_filter.ref = table.ref
+        return True
 
     @classmethod
     def _column_map(cls, sheet, table) -> dict[str, int]:
@@ -328,6 +372,17 @@ class AtivacaoClient:
             raise DataClientError("A aba ATIVACAO não foi encontrada no arquivo.", status_code=500)
         sheet = workbook["ATIVACAO"]
         table = self._table(sheet)
+        if self._ensure_situacao_column(sheet, table):
+            self._save_atomic(path, workbook)
+            try:
+                workbook = load_workbook(path)
+            except PermissionError as exc:
+                raise DataClientError(
+                    "ATIVACAO.xlsx está bloqueado. Feche o arquivo no Excel e tente novamente.",
+                    status_code=423,
+                ) from exc
+            sheet = workbook["ATIVACAO"]
+            table = self._table(sheet)
         mapping = self._column_map(sheet, table)
         return path, workbook, sheet, table, mapping
 
@@ -413,6 +468,11 @@ class AtivacaoClient:
         result["no_mes"] = self._canonical(merged.get("no_mes"), FIXED_OPTIONS["sim_nao"], "No Mês")
         result["faturado"] = self._canonical(merged.get("faturado"), FIXED_OPTIONS["sim_nao"], "Faturado")
         result["com_rfs"] = self._canonical(merged.get("com_rfs"), FIXED_OPTIONS["sim_nao"], "Com RFS")
+        situacao = _text(merged.get("situacao"))
+        result["situacao"] = (
+            self._canonical(situacao, FIXED_OPTIONS["situacoes"], "Situação")
+            if situacao else ""
+        )
         return result
 
     @staticmethod
