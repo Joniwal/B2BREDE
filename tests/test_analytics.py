@@ -155,7 +155,12 @@ class AnalyticsTests(unittest.TestCase):
                 "DATAAGENDAMENTO": "2026-08-24",
             },
             {
-                # Status fora das sete colunas solicitadas não entra no total.
+                "ATIVIDADE": "AÇÃO DE QUALIDADE",
+                "STATUS": "VISTORIA CONCLUIDA",
+                "DATAAGENDAMENTO": "2026-08-24",
+            },
+            {
+                # Status fora das oito colunas solicitadas não entra no total.
                 "ATIVIDADE": "REPARO",
                 "STATUS": "NOVO",
                 "DATAAGENDAMENTO": "2026-08-24",
@@ -166,6 +171,7 @@ class AnalyticsTests(unittest.TestCase):
         linhas = {linha["atividade"]: linha for linha in fechamento["linhas"]}
         idx_concluido = fechamento["status"].index("CONCLUIDO")
         idx_pcc = fechamento["status"].index("PCC")
+        idx_vistoria = fechamento["status"].index("VISTORIA CONCLUÍDA")
 
         self.assertEqual(fechamento["data_inicio"], "2026-08-24")
         self.assertEqual(fechamento["data_fim"], "2026-08-24")
@@ -180,12 +186,14 @@ class AnalyticsTests(unittest.TestCase):
                 "INICIADO NAO CONCLUIDO",
                 "PCC",
                 "SEM ACAO OSP",
+                "VISTORIA CONCLUÍDA",
             ],
         )
         self.assertNotIn("INSTALAÇÃO", linhas)
         self.assertEqual(linhas["REPARO"]["valores"][idx_concluido], 1)
         self.assertEqual(linhas["ESTEIRA"]["valores"][idx_pcc], 1)
-        self.assertEqual(fechamento["total_geral"], 2)
+        self.assertEqual(linhas["AÇÃO DE QUALIDADE"]["valores"][idx_vistoria], 1)
+        self.assertEqual(fechamento["total_geral"], 3)
 
     def test_fechamento_geral_uses_exact_selected_date(self):
         self.client._excel_read_all = lambda: [

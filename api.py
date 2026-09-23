@@ -58,6 +58,7 @@ def _parse_ativacao_filters():
         "com_rfs": request.args.get("comRfs"),
         "data_execucao": request.args.get("dataExecucao"),
         "data_agendamento": request.args.get("dataAgendamento"),
+        "mes_execucao": request.args.get("mesExecucao"),
         "q": request.args.get("q"),
     }
     return {key: value for key, value in filters.items() if value}

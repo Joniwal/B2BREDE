@@ -60,7 +60,7 @@ HEADER_ALIASES = {
 FIXED_OPTIONS = {
     "tecnologias": ["ERB", "GPON"],
     "empresas": ["VIVO", "RS TELECOM"],
-    "status": ["OK", "NOK"],
+    "status": ["OK", "NOK", "FECHAMENTO INTERNO"],
     "sim_nao": ["SIM", "NÃO"],
     "tecnicos": [
         "ALEXSANDRO NUNES DA SILVA",
@@ -70,7 +70,8 @@ FIXED_OPTIONS = {
         "LUCAS SILVA ANDRADE",
         "MARCOS ROBERTO HOLTMAN",
         "ERENILSON SANT'ANA",
-        "RS TELECOM"
+        "RS TELECOM",
+        "STAFF",
     ],
     "situacoes": [
         "FALTA GOLD JUMPER",
@@ -604,6 +605,12 @@ class AtivacaoClient:
         filters = filters or {}
         execution_date = _parse_date(filters.get("data_execucao"), label="Data de Execução")
         schedule_date = _parse_date(filters.get("data_agendamento"), label="Data de Agendamento")
+        execution_month = _text(filters.get("mes_execucao"))
+        if execution_month:
+            try:
+                datetime.strptime(execution_month, "%Y-%m")
+            except ValueError as exc:
+                raise DataClientError("Mês da Execução inválido.", status_code=400) from exc
         exact_fields = ("servico", "tecnologia", "empresa", "status", "faturado", "com_rfs")
         query = _text(filters.get("q")).casefold()
         result = []
@@ -611,6 +618,8 @@ class AtivacaoClient:
             if execution_date and _parse_date(item.get("data_execucao")) != execution_date:
                 continue
             if schedule_date and _parse_date(item.get("data_agendamento")) != schedule_date:
+                continue
+            if execution_month and not _text(item.get("data_execucao")).startswith(f"{execution_month}-"):
                 continue
             if any(
                 filters.get(field)

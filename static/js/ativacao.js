@@ -130,6 +130,7 @@
       q: byId("fAtivacaoBusca").value.trim(),
       dataExecucao: byId("fDataExecucao").value,
       dataAgendamento: byId("fDataAgendamento").value,
+      mesExecucao: byId("fMesExecucao").value,
       servico: byId("fAtivacaoServico").value,
       tecnologia: byId("fAtivacaoTecnologia").value,
       status: byId("fAtivacaoStatus").value,
@@ -398,7 +399,7 @@
   }
 
   function resetFilterControls() {
-    ["fAtivacaoBusca", "fDataExecucao", "fDataAgendamento", "fAtivacaoServico", "fAtivacaoTecnologia", "fAtivacaoStatus", "fAtivacaoFaturado", "fAtivacaoRfs"]
+    ["fAtivacaoBusca", "fDataExecucao", "fDataAgendamento", "fMesExecucao", "fAtivacaoServico", "fAtivacaoTecnologia", "fAtivacaoStatus", "fAtivacaoFaturado", "fAtivacaoRfs"]
       .forEach((id) => { byId(id).value = ""; });
   }
 
@@ -424,11 +425,24 @@
     byId("btnHabilitarEdicao").addEventListener("click", () => setDetailEditable(true));
     byId("btnExcluirAtivacao").addEventListener("click", deleteRecord);
     byId("fDataExecucao").addEventListener("change", () => {
-      if (byId("fDataExecucao").value) byId("fDataAgendamento").value = "";
+      if (byId("fDataExecucao").value) {
+        byId("fDataAgendamento").value = "";
+        byId("fMesExecucao").value = "";
+      }
       applyFilters();
     });
     byId("fDataAgendamento").addEventListener("change", () => {
-      if (byId("fDataAgendamento").value) byId("fDataExecucao").value = "";
+      if (byId("fDataAgendamento").value) {
+        byId("fDataExecucao").value = "";
+        byId("fMesExecucao").value = "";
+      }
+      applyFilters();
+    });
+    byId("fMesExecucao").addEventListener("change", () => {
+      if (byId("fMesExecucao").value) {
+        byId("fDataExecucao").value = "";
+        byId("fDataAgendamento").value = "";
+      }
       applyFilters();
     });
     byId("ativacaoPageSize").addEventListener("change", (event) => {

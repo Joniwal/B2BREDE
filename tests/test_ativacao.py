@@ -128,6 +128,7 @@ class AtivacaoClientTests(unittest.TestCase):
         self.assertIn("<th>Situação</th>", html)
         self.assertIn('id="newSituacao"', html)
         self.assertIn('id="editSituacao"', html)
+        self.assertIn('id="fMesExecucao"', html)
 
     def test_filters_by_execution_and_schedule_dates(self):
         today = date.today()
@@ -140,13 +141,30 @@ class AtivacaoClientTests(unittest.TestCase):
         self.assertEqual([item["cliente"] for item in execution["items"]], ["EXECUTA HOJE"])
         self.assertEqual([item["cliente"] for item in schedule["items"]], ["AGENDA HOJE"])
 
+    def test_filters_by_execution_month_through_api(self):
+        self.client.create(self.payload(id="MES-ATUAL", cliente="MÊS ATUAL", data_execucao="2026-09-15"))
+        self.client.create(self.payload(id="MES-ANTERIOR", cliente="MÊS ANTERIOR", data_execucao="2026-08-31"))
+        app = create_app()
+        app.config["TESTING"] = True
+
+        with patch.object(api, "ativacao_client", self.client):
+            response = app.test_client().get("/api/ativacao/records?mesExecucao=2026-09")
+
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()["data"]
+        self.assertEqual(data["total"], 1)
+        self.assertEqual(data["items"][0]["id"], "MES-ATUAL")
+
+        with self.assertRaisesRegex(DataClientError, "Mês da Execução inválido"):
+            self.client.list({"mes_execucao": "2026-13"})
+
     def test_dashboard_requested_distributions(self):
         today = date.today().isoformat()
         self.client.create(self.payload(servico="IP DEDICADO", tecnologia="GPON", faturado="SIM", com_rfs="SIM"))
         self.client.create(self.payload(servico="SIP", tecnologia="ERB", status="NOK", faturado="NÃO", com_rfs="NÃO"))
         dashboard = self.client.dashboard({"data_execucao": today})
         self.assertEqual(dashboard["kpis"]["total"], 2)
-        self.assertEqual(dashboard["por_status"]["values"], [1, 1])
+        self.assertEqual(dashboard["por_status"]["values"], [1, 1, 0])
         self.assertEqual(dashboard["por_tecnologia"]["values"], [1, 1])
         self.assertEqual(dashboard["por_faturado"]["values"], [1, 1])
         self.assertEqual(dashboard["por_rfs"]["values"], [1, 1])
@@ -178,8 +196,15 @@ class AtivacaoClientTests(unittest.TestCase):
                 "MARCOS ROBERTO HOLTMAN",
                 "ERENILSON SANT'ANA",
                 "RS TELECOM",
+                "STAFF",
             ],
         )
+        self.assertEqual(options["status"], ["OK", "NOK", "FECHAMENTO INTERNO"])
+        fechamento = self.client.create(
+            self.payload(id="FECHAMENTO-01", status="FECHAMENTO INTERNO", tecnico="STAFF")
+        )
+        self.assertEqual(fechamento["status"], "FECHAMENTO INTERNO")
+        self.assertEqual(fechamento["tecnico"], "STAFF")
         self.assertEqual(
             options["situacoes"],
             [

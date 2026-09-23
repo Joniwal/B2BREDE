@@ -49,6 +49,10 @@
           <input id="fDataAgendamento" class="form-control form-control-sm" type="date">
         </div>
         <div class="col-6 col-md-4 col-xl-2">
+          <label for="fMesExecucao" class="form-label">Mês da execução</label>
+          <input id="fMesExecucao" class="form-control form-control-sm" type="month">
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
           <label for="fAtivacaoServico" class="form-label">Serviço</label>
           <select id="fAtivacaoServico" class="form-select form-select-sm"><option value="">Todos</option></select>
         </div>
@@ -169,7 +173,7 @@
   <div id="ativacaoAlertContainer" class="alert-container" aria-live="polite"></div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-  <script src="{{ url_for('static', filename='js/ativacao.js') }}?v=ativacao-situacao-1"></script>
+  <script src="{{ url_for('static', filename='js/ativacao.js') }}?v=ativacao-mes-1"></script>
   <script src="{{ url_for('static', filename='js/app-controls.js') }}?v=encerrar-1"></script>
 </body>
 </html>
