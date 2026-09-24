@@ -120,7 +120,6 @@
   </main>
 
   <datalist id="listaClientesAtivacao"></datalist>
-  <datalist id="listaServicosAtivacao"></datalist>
 
   <!-- Modal exclusivo para inserção -->
   <div class="modal fade" id="novaAtivacaoModal" tabindex="-1" aria-labelledby="novaAtivacaoModalTitle" aria-hidden="true">
@@ -128,15 +127,16 @@
       <div class="modal-header ativacao-modal-header"><div><h2 class="modal-title" id="novaAtivacaoModalTitle">Nova atividade</h2><small>Informe os dados que serão gravados na tabela ATIVACAO.</small></div><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
       <div class="modal-body"><div id="novaAtivacaoError" class="alert alert-danger d-none" role="alert"></div><div class="row g-3">
         <div class="col-md-3"><label for="newId" class="form-label">ID *</label><input id="newId" class="form-control" type="text" autocomplete="off" spellcheck="false" required><div class="invalid-feedback">Campo ID obrigatório.</div></div>
+        <fieldset class="col-md-3"><legend class="form-label fs-6">Permitir ID duplicado?</legend><div class="pt-2"><div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="newPermitirIdDuplicado" id="newPermitirIdDuplicadoNao" value="nao" checked><label class="form-check-label" for="newPermitirIdDuplicadoNao">Não</label></div><div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="newPermitirIdDuplicado" id="newPermitirIdDuplicadoSim" value="sim"><label class="form-check-label" for="newPermitirIdDuplicadoSim">Sim</label></div></div></fieldset>
         <div class="col-md-3"><label for="newCliente" class="form-label">Cliente *</label><input id="newCliente" class="form-control" list="listaClientesAtivacao" required><div class="invalid-feedback">Campo Cliente obrigatório.</div></div>
         <div class="col-md-3"><label for="newCidade" class="form-label">Cidade *</label><select id="newCidade" class="form-select" required><option value="">Selecione...</option></select><div class="invalid-feedback">Campo Cidade obrigatório.</div></div>
-        <div class="col-md-3"><label for="newServico" class="form-label">Serviço *</label><input id="newServico" class="form-control" list="listaServicosAtivacao" required><div class="invalid-feedback">Campo Serviço obrigatório.</div></div>
+        <div class="col-md-3"><label for="newServico" class="form-label">Serviço *</label><select id="newServico" class="form-select" required><option value="">Selecione...</option></select><div class="invalid-feedback">Campo Serviço obrigatório.</div></div>
         <div class="col-md-3"><label for="newTecnologia" class="form-label">Tecnologia *</label><select id="newTecnologia" class="form-select" required></select></div>
         <div class="col-md-3"><label for="newEmpresa" class="form-label">Empresa *</label><select id="newEmpresa" class="form-select" required></select></div>
         <div class="col-md-3"><label for="newStatus" class="form-label">Status *</label><select id="newStatus" class="form-select" required></select></div>
         <div class="col-md-3"><label for="newTecnico" class="form-label">Executado por *</label><select id="newTecnico" class="form-select" required><option value="">Selecione...</option></select><div class="invalid-feedback">Campo Executado por obrigatório.</div></div>
-        <div class="col-md-3"><label for="newDataAgendamento" class="form-label">Data de agendamento *</label><input id="newDataAgendamento" class="form-control" type="date" required></div>
-        <div class="col-md-3"><label for="newDataExecucao" class="form-label">Data de execução</label><input id="newDataExecucao" class="form-control" type="date"></div>
+        <div class="col-md-3"><label for="newDataAgendamento" class="form-label">Data de agendamento *</label><input id="newDataAgendamento" class="form-control" type="date" required><div class="form-text">Aceita datas futuras.</div></div>
+        <div class="col-md-3"><label for="newDataExecucao" class="form-label">Data de execução</label><input id="newDataExecucao" class="form-control" type="date"><div class="form-text">Aceita datas futuras.</div></div>
         <div class="col-md-2"><label for="newNoMes" class="form-label">No mês *</label><select id="newNoMes" class="form-select" required></select></div>
         <div class="col-md-2"><label for="newFaturado" class="form-label">Campo *</label><select id="newFaturado" class="form-select" required></select></div>
         <div class="col-md-2"><label for="newComRfs" class="form-label">Com RFS *</label><select id="newComRfs" class="form-select" required></select></div>
@@ -150,17 +150,18 @@
   <div class="modal fade" id="detalheAtivacaoModal" tabindex="-1" aria-labelledby="detalheAtivacaoModalTitle" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content"><form id="editarAtivacaoForm" novalidate>
       <div class="modal-header ativacao-modal-header"><div><h2 class="modal-title" id="detalheAtivacaoModalTitle">Visualizar atividade</h2><small id="detalheAtivacaoId">ID —</small></div><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
-      <div class="modal-body"><div id="editarAtivacaoError" class="alert alert-danger d-none" role="alert"></div><input type="hidden" id="editOriginalId"><div class="row g-3">
+      <div class="modal-body"><div id="editarAtivacaoError" class="alert alert-danger d-none" role="alert"></div><input type="hidden" id="editOriginalId"><input type="hidden" id="editOriginalRow"><div class="row g-3">
         <div class="col-md-3"><label for="editId" class="form-label">ID *</label><input id="editId" class="form-control" type="text" autocomplete="off" spellcheck="false" required><div class="invalid-feedback">Campo ID obrigatório.</div></div>
+        <fieldset class="col-md-3"><legend class="form-label fs-6">Permitir ID duplicado?</legend><div class="pt-2"><div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="editPermitirIdDuplicado" id="editPermitirIdDuplicadoNao" value="nao" checked><label class="form-check-label" for="editPermitirIdDuplicadoNao">Não</label></div><div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="editPermitirIdDuplicado" id="editPermitirIdDuplicadoSim" value="sim"><label class="form-check-label" for="editPermitirIdDuplicadoSim">Sim</label></div></div></fieldset>
         <div class="col-md-3"><label for="editCliente" class="form-label">Cliente *</label><input id="editCliente" class="form-control" list="listaClientesAtivacao" required></div>
         <div class="col-md-3"><label for="editCidade" class="form-label">Cidade *</label><select id="editCidade" class="form-select" required><option value="">Selecione...</option></select></div>
-        <div class="col-md-3"><label for="editServico" class="form-label">Serviço *</label><input id="editServico" class="form-control" list="listaServicosAtivacao" required></div>
+        <div class="col-md-3"><label for="editServico" class="form-label">Serviço *</label><select id="editServico" class="form-select" required><option value="">Selecione...</option></select></div>
         <div class="col-md-3"><label for="editTecnologia" class="form-label">Tecnologia *</label><select id="editTecnologia" class="form-select" required></select></div>
         <div class="col-md-3"><label for="editEmpresa" class="form-label">Empresa *</label><select id="editEmpresa" class="form-select" required></select></div>
         <div class="col-md-3"><label for="editStatus" class="form-label">Status *</label><select id="editStatus" class="form-select" required></select></div>
         <div class="col-md-3"><label for="editTecnico" class="form-label">Executado por *</label><select id="editTecnico" class="form-select" required><option value="">Selecione...</option></select></div>
-        <div class="col-md-3"><label for="editDataAgendamento" class="form-label">Data de agendamento *</label><input id="editDataAgendamento" class="form-control" type="date" required></div>
-        <div class="col-md-3"><label for="editDataExecucao" class="form-label">Data de execução</label><input id="editDataExecucao" class="form-control" type="date"></div>
+        <div class="col-md-3"><label for="editDataAgendamento" class="form-label">Data de agendamento *</label><input id="editDataAgendamento" class="form-control" type="date" required><div class="form-text">Aceita datas futuras.</div></div>
+        <div class="col-md-3"><label for="editDataExecucao" class="form-label">Data de execução</label><input id="editDataExecucao" class="form-control" type="date"><div class="form-text">Aceita datas futuras.</div></div>
         <div class="col-md-2"><label for="editNoMes" class="form-label">No mês *</label><select id="editNoMes" class="form-select" required></select></div>
         <div class="col-md-2"><label for="editFaturado" class="form-label">Campo</label><select id="editFaturado" class="form-select" required></select></div>
         <div class="col-md-2"><label for="editComRfs" class="form-label">Com RFS *</label><select id="editComRfs" class="form-select" required></select></div>
@@ -173,7 +174,7 @@
   <div id="ativacaoAlertContainer" class="alert-container" aria-live="polite"></div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-  <script src="{{ url_for('static', filename='js/ativacao.js') }}?v=ativacao-mes-1"></script>
+  <script src="{{ url_for('static', filename='js/ativacao.js') }}?v=ativacao-servicos-status-1"></script>
   <script src="{{ url_for('static', filename='js/app-controls.js') }}?v=encerrar-1"></script>
 </body>
 </html>

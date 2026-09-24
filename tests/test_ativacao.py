@@ -129,6 +129,55 @@ class AtivacaoClientTests(unittest.TestCase):
         self.assertIn('id="newSituacao"', html)
         self.assertIn('id="editSituacao"', html)
         self.assertIn('id="fMesExecucao"', html)
+        self.assertIn('id="newPermitirIdDuplicadoSim"', html)
+        self.assertIn('id="editPermitirIdDuplicadoSim"', html)
+        self.assertIn('id="editOriginalRow"', html)
+        self.assertEqual(html.count("Aceita datas futuras."), 4)
+        self.assertIn('<select id="newServico"', html)
+        self.assertIn('<select id="editServico"', html)
+
+    def test_duplicate_ids_can_be_managed_by_excel_row_when_authorized(self):
+        first = self.client.create(self.payload(id="DUP-01", cliente="PRIMEIRO"))
+        with self.assertRaisesRegex(DataClientError, "Já existe uma atividade"):
+            self.client.create(self.payload(id="DUP-01", cliente="BLOQUEADO"))
+
+        second = self.client.create(self.payload(
+            id="DUP-01",
+            cliente="SEGUNDO",
+            permitir_id_duplicado=True,
+        ))
+        self.assertNotEqual(first["row_number"], second["row_number"])
+        self.assertEqual(second["cliente"], "SEGUNDO")
+
+        updated = self.client.update(
+            "DUP-01",
+            {"cliente": "SEGUNDO EDITADO"},
+            row_number=second["row_number"],
+        )
+        self.assertEqual(updated["cliente"], "SEGUNDO EDITADO")
+        self.assertEqual(self.client.get("DUP-01", first["row_number"])["cliente"], "PRIMEIRO")
+
+        self.client.delete("DUP-01", row_number=first["row_number"])
+        remaining = self.client.list({"q": "DUP-01"})["items"]
+        self.assertEqual(len(remaining), 1)
+        self.assertEqual(remaining[0]["cliente"], "SEGUNDO EDITADO")
+
+    def test_future_dates_are_accepted_on_create_and_update(self):
+        created = self.client.create(self.payload(
+            id="FUTURO-01",
+            data_agendamento="2099-12-30",
+            data_execucao="2099-12-31",
+        ))
+        self.assertEqual(created["data_agendamento"], "2099-12-30")
+        self.assertEqual(created["data_execucao"], "2099-12-31")
+
+        updated = self.client.update(
+            "FUTURO-01",
+            {"data_agendamento": "2100-01-15", "data_execucao": "2100-01-20"},
+            row_number=created["row_number"],
+        )
+        self.assertEqual(updated["data_agendamento"], "2100-01-15")
+        self.assertEqual(updated["data_execucao"], "2100-01-20")
 
     def test_filters_by_execution_and_schedule_dates(self):
         today = date.today()
@@ -164,7 +213,7 @@ class AtivacaoClientTests(unittest.TestCase):
         self.client.create(self.payload(servico="SIP", tecnologia="ERB", status="NOK", faturado="NÃO", com_rfs="NÃO"))
         dashboard = self.client.dashboard({"data_execucao": today})
         self.assertEqual(dashboard["kpis"]["total"], 2)
-        self.assertEqual(dashboard["por_status"]["values"], [1, 1, 0])
+        self.assertEqual(dashboard["por_status"]["values"], [1, 1, 0, 0])
         self.assertEqual(dashboard["por_tecnologia"]["values"], [1, 1])
         self.assertEqual(dashboard["por_faturado"]["values"], [1, 1])
         self.assertEqual(dashboard["por_rfs"]["values"], [1, 1])
@@ -184,7 +233,9 @@ class AtivacaoClientTests(unittest.TestCase):
         self.assertIn("PINHAIS", options["cidades"])
         self.assertIn("SÃO JOSÉ DOS PINHAIS", options["cidades"])
         self.assertIn("PONTA GROSSA", options["cidades"])
-        self.assertIn("SIP", options["servicos"])
+        self.assertTrue(
+            {"REPARO", "MIGRAÇÃO", "QUALIDADE", "SIP", "IP DEDICADO"}.issubset(options["servicos"])
+        )
         self.assertEqual(
             options["tecnicos"],
             [
@@ -197,14 +248,17 @@ class AtivacaoClientTests(unittest.TestCase):
                 "ERENILSON SANT'ANA",
                 "RS TELECOM",
                 "STAFF",
+                "BAIXADO REGIONAL",
             ],
         )
-        self.assertEqual(options["status"], ["OK", "NOK", "FECHAMENTO INTERNO"])
+        self.assertEqual(options["status"], ["OK", "NOK", "FECHAMENTO INTERNO", "NÃO INSTALADO"])
         fechamento = self.client.create(
             self.payload(id="FECHAMENTO-01", status="FECHAMENTO INTERNO", tecnico="STAFF")
         )
         self.assertEqual(fechamento["status"], "FECHAMENTO INTERNO")
         self.assertEqual(fechamento["tecnico"], "STAFF")
+        nao_instalado = self.client.create(self.payload(id="NAO-INSTALADO-01", status="NÃO INSTALADO"))
+        self.assertEqual(nao_instalado["status"], "NÃO INSTALADO")
         self.assertEqual(
             options["situacoes"],
             [

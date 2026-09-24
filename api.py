@@ -335,7 +335,7 @@ def ativacao_records():
 @api_bp.route("/ativacao/records/<path:item_id>", methods=["GET"])
 def ativacao_get_record(item_id):
     try:
-        return jsonify({"ok": True, "data": ativacao_client.get(item_id)})
+        return jsonify({"ok": True, "data": ativacao_client.get(item_id, request.args.get("row"))})
     except DataClientError as exc:
         return _error_response(exc)
     except Exception:  # noqa: BLE001
@@ -360,7 +360,7 @@ def ativacao_create_record():
 def ativacao_update_record(item_id):
     try:
         payload = request.get_json(force=True, silent=True) or {}
-        result = ativacao_client.update(item_id, payload)
+        result = ativacao_client.update(item_id, payload, row_number=request.args.get("row"))
         return jsonify({"ok": True, "data": result})
     except DataClientError as exc:
         return _error_response(exc)
@@ -372,7 +372,7 @@ def ativacao_update_record(item_id):
 @api_bp.route("/ativacao/records/<path:item_id>", methods=["DELETE"])
 def ativacao_delete_record(item_id):
     try:
-        return jsonify({"ok": True, "data": ativacao_client.delete(item_id)})
+        return jsonify({"ok": True, "data": ativacao_client.delete(item_id, row_number=request.args.get("row"))})
     except DataClientError as exc:
         return _error_response(exc)
     except Exception:  # noqa: BLE001

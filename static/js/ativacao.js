@@ -59,6 +59,10 @@
     const now = new Date();
     return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   };
+  const enableFutureDates = () => {
+    ["newDataAgendamento", "newDataExecucao", "editDataAgendamento", "editDataExecucao"]
+      .forEach((id) => byId(id)?.removeAttribute("max"));
+  };
   const escapeHtml = (value) => String(value ?? "")
     .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -111,9 +115,9 @@
     fillSelect("fAtivacaoFaturado", state.options.sim_nao, "Todos");
     fillSelect("fAtivacaoRfs", state.options.sim_nao, "Todos");
     fillDatalist("listaClientesAtivacao", state.options.clientes);
-    fillDatalist("listaServicosAtivacao", state.options.servicos);
     ["new", "edit"].forEach((prefix) => {
       fillSelect(`${prefix}Cidade`, state.options.cidades);
+      fillSelect(`${prefix}Servico`, state.options.servicos);
       fillSelect(`${prefix}Tecnologia`, state.options.tecnologias);
       fillSelect(`${prefix}Empresa`, state.options.empresas);
       fillSelect(`${prefix}Status`, state.options.status);
@@ -215,19 +219,19 @@
   const badge = (value, positive = "SIM") => `<span class="badge text-bg-${value === positive ? "success" : "secondary"}">${escapeHtml(value || "—")}</span>`;
 
   function renderTable(data) {
-    state.records = new Map((data.items || []).map((item) => [String(item.id), item]));
+    state.records = new Map((data.items || []).map((item) => [String(item.row_number), item]));
     const body = byId("ativacaoTableBody");
     if (!data.items?.length) {
       body.innerHTML = '<tr><td colspan="15" class="text-center text-muted py-4">Nenhum registro encontrado para os filtros selecionados.</td></tr>';
     } else {
       body.innerHTML = data.items.map((item) => `
-        <tr data-id="${escapeHtml(item.id)}" title="Duplo clique para visualizar">
+        <tr data-record-key="${escapeHtml(item.row_number)}" title="Duplo clique para visualizar">
           <td>${escapeHtml(item.id)}</td><td title="${escapeHtml(item.cliente)}">${escapeHtml(shortText(item.cliente))}</td><td>${escapeHtml(item.cidade)}</td>
           <td>${escapeHtml(item.servico)}</td><td>${escapeHtml(item.tecnologia)}</td><td>${escapeHtml(item.empresa)}</td>
           <td>${badge(item.status, "OK")}</td><td>${formatDate(item.data_agendamento)}</td><td>${formatDate(item.data_execucao)}</td>
           <td>${badge(item.no_mes)}</td><td>${escapeHtml(item.tecnico)}</td><td>${badge(item.faturado)}</td><td>${badge(item.com_rfs)}</td>
           <td title="${escapeHtml(item.situacao)}">${escapeHtml(shortText(item.situacao || "—", 18))}</td>
-          <td class="text-end"><button class="btn btn-outline-primary btn-sm btn-view-ativacao" data-id="${escapeHtml(item.id)}" type="button" title="Visualizar"><i class="bi bi-eye"></i></button></td>
+          <td class="text-end"><button class="btn btn-outline-primary btn-sm btn-view-ativacao" data-record-key="${escapeHtml(item.row_number)}" type="button" title="Visualizar"><i class="bi bi-eye"></i></button></td>
         </tr>`).join("");
     }
     const from = data.total ? (data.page - 1) * data.page_size + 1 : 0;
@@ -264,6 +268,7 @@
   }
 
   function payload(prefix) {
+    const duplicateChoice = document.querySelector(`input[name="${prefix}PermitirIdDuplicado"]:checked`);
     return {
       id: byId(`${prefix}Id`).value.trim(),
       cliente: byId(`${prefix}Cliente`).value.trim(),
@@ -279,6 +284,7 @@
       faturado: byId(`${prefix}Faturado`).value,
       com_rfs: byId(`${prefix}ComRfs`).value,
       situacao: byId(`${prefix}Situacao`).value,
+      permitir_id_duplicado: duplicateChoice?.value === "sim",
     };
   }
 
@@ -294,6 +300,7 @@
 
   function openNewModal() {
     const form = byId("novaAtivacaoForm");
+    enableFutureDates();
     form.reset();
     form.classList.remove("was-validated");
     byId("novaAtivacaoError").classList.add("d-none");
@@ -302,6 +309,7 @@
     byId("newNoMes").value = "SIM";
     byId("newFaturado").value = "NÃO";
     byId("newComRfs").value = "NÃO";
+    byId("newPermitirIdDuplicadoNao").checked = true;
     state.newModal.show();
   }
 
@@ -315,7 +323,9 @@
 
   function openDetailModal(item) {
     if (!item) return;
+    enableFutureDates();
     byId("editOriginalId").value = item.id;
+    byId("editOriginalRow").value = item.row_number;
     byId("detalheAtivacaoId").textContent = `ID ${item.id}`;
     byId("editarAtivacaoForm").classList.remove("was-validated");
     byId("editarAtivacaoError").classList.add("d-none");
@@ -324,6 +334,7 @@
       technicianSelect.add(new Option(item.tecnico, item.tecnico));
     }
     setFormValues("edit", item);
+    byId("editPermitirIdDuplicadoNao").checked = true;
     setDetailEditable(false);
     state.detailModal.show();
   }
@@ -358,12 +369,13 @@
     form.classList.add("was-validated");
     if (!form.checkValidity()) return;
     const id = byId("editOriginalId").value;
+    const row = byId("editOriginalRow").value;
     const button = byId("btnSalvarEdicaoAtivacao");
     const errorBox = byId("editarAtivacaoError");
     button.disabled = true;
     errorBox.classList.add("d-none");
     try {
-      await api(`/api/ativacao/records/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(payload("edit")) });
+      await api(`/api/ativacao/records/${encodeURIComponent(id)}?row=${encodeURIComponent(row)}`, { method: "PATCH", body: JSON.stringify(payload("edit")) });
       state.detailModal.hide();
       await loadOptions();
       await refreshAll();
@@ -378,9 +390,10 @@
 
   async function deleteRecord() {
     const id = byId("editOriginalId").value;
+    const row = byId("editOriginalRow").value;
     if (!id || !window.confirm(`Excluir definitivamente a atividade ID ${id}?`)) return;
     try {
-      await api(`/api/ativacao/records/${encodeURIComponent(id)}`, { method: "DELETE" });
+      await api(`/api/ativacao/records/${encodeURIComponent(id)}?row=${encodeURIComponent(row)}`, { method: "DELETE" });
       state.detailModal.hide();
       state.page = 1;
       await refreshAll();
@@ -458,11 +471,11 @@
     });
     byId("ativacaoTableBody").addEventListener("click", (event) => {
       const button = event.target.closest(".btn-view-ativacao");
-      if (button) openDetailModal(state.records.get(button.dataset.id));
+      if (button) openDetailModal(state.records.get(button.dataset.recordKey));
     });
     byId("ativacaoTableBody").addEventListener("dblclick", (event) => {
-      const row = event.target.closest("tr[data-id]");
-      if (row) openDetailModal(state.records.get(row.dataset.id));
+      const row = event.target.closest("tr[data-record-key]");
+      if (row) openDetailModal(state.records.get(row.dataset.recordKey));
     });
     byId("btnExportarAtivacao").addEventListener("click", () => {
       window.location.href = `/api/ativacao/export?${queryString()}`;
@@ -477,6 +490,7 @@
   document.addEventListener("DOMContentLoaded", async () => {
     state.newModal = new bootstrap.Modal(byId("novaAtivacaoModal"));
     state.detailModal = new bootstrap.Modal(byId("detalheAtivacaoModal"));
+    enableFutureDates();
     bindEvents();
     try {
       await loadOptions();

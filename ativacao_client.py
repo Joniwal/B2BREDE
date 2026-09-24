@@ -60,7 +60,7 @@ HEADER_ALIASES = {
 FIXED_OPTIONS = {
     "tecnologias": ["ERB", "GPON"],
     "empresas": ["VIVO", "RS TELECOM"],
-    "status": ["OK", "NOK", "FECHAMENTO INTERNO"],
+    "status": ["OK", "NOK", "FECHAMENTO INTERNO", "NÃO INSTALADO"],
     "sim_nao": ["SIM", "NÃO"],
     "tecnicos": [
         "ALEXSANDRO NUNES DA SILVA",
@@ -72,6 +72,7 @@ FIXED_OPTIONS = {
         "ERENILSON SANT'ANA",
         "RS TELECOM",
         "STAFF",
+        "BAIXADO REGIONAL",
     ],
     "situacoes": [
         "FALTA GOLD JUMPER",
@@ -88,6 +89,14 @@ FIXED_OPTIONS = {
         "PENDÊNCIA CLIENTE",
     ],
 }
+
+FIXED_SERVICES = [
+    "REPARO",
+    "MIGRAÇÃO",
+    "QUALIDADE",
+    "SIP",
+    "IP DEDICADO",
+]
 
 REQUIRED_LABELS = {
     "cliente": "Cliente",
@@ -132,6 +141,12 @@ def _parse_id(value, *, required=False) -> int | str | None:
 
 def _id_key(value) -> str:
     return _text(value).casefold()
+
+
+def _is_true(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    return _text(value).casefold() in {"1", "true", "sim", "yes"}
 
 
 def _parse_date(value, *, required=False, label="Data") -> date | None:
@@ -484,7 +499,26 @@ class AtivacaoClient:
 
     @staticmethod
     def _clean_item(item):
-        return {field: item.get(field, "") for field in FIELDS}
+        cleaned = {field: item.get(field, "") for field in FIELDS}
+        cleaned["row_number"] = item.get("_row")
+        return cleaned
+
+    @staticmethod
+    def _find_item(rows, item_id, row_number=None):
+        target_row = None
+        if row_number not in (None, ""):
+            try:
+                target_row = int(row_number)
+            except (TypeError, ValueError) as exc:
+                raise DataClientError("Referência da linha inválida.", status_code=400) from exc
+        return next(
+            (
+                item for item in rows
+                if _id_key(item["id"]) == _id_key(item_id)
+                and (target_row is None or item["_row"] == target_row)
+            ),
+            None,
+        )
 
     def status_file(self):
         path = self._resolve_path()
@@ -515,18 +549,22 @@ class AtivacaoClient:
         return {
             "clientes": _unique_sorted(item["cliente"] for item in rows),
             "cidades": _unique_sorted(city_values),
-            "servicos": _unique_sorted(item["servico"] for item in rows),
+            "servicos": _unique_sorted([
+                *FIXED_SERVICES,
+                *(item["servico"] for item in rows),
+            ]),
             **{key: list(values) for key, values in FIXED_OPTIONS.items()},
         }
 
-    def get(self, item_id) -> dict:
-        for item in self._all():
-            if _id_key(item["id"]) == _id_key(item_id):
-                return self._clean_item(item)
+    def get(self, item_id, row_number=None) -> dict:
+        item = self._find_item(self._all(), item_id, row_number)
+        if item:
+            return self._clean_item(item)
         raise DataClientError(f"Registro ID {item_id} não encontrado.", status_code=404)
 
     def create(self, payload: dict) -> dict:
         normalized = self._validate(payload)
+        allow_duplicate_id = _is_true((payload or {}).get("permitir_id_duplicado"))
         with ATIVACAO_LOCK:
             path, workbook, sheet, table, mapping = self._load()
             rows = self._read_rows(sheet, table, mapping)
@@ -536,7 +574,7 @@ class AtivacaoClient:
                 normalized["id"] = (max(numeric_ids) if numeric_ids else 0) + 1
                 while _id_key(normalized["id"]) in existing_ids:
                     normalized["id"] += 1
-            elif _id_key(normalized["id"]) in existing_ids:
+            elif _id_key(normalized["id"]) in existing_ids and not allow_duplicate_id:
                 workbook.close()
                 raise DataClientError(
                     f"Já existe uma atividade com o ID {normalized['id']}.",
@@ -555,18 +593,20 @@ class AtivacaoClient:
                 table.ref = f"{sheet.cell(min_row, min_col).coordinate}:{sheet.cell(target_row, max_col).coordinate}"
                 sheet.auto_filter.ref = table.ref
             self._save_atomic(path, workbook)
-        return self.get(normalized["id"])
+        return self.get(normalized["id"], row_number=target_row)
 
-    def update(self, item_id, payload: dict) -> dict:
+    def update(self, item_id, payload: dict, row_number=None) -> dict:
+        allow_duplicate_id = _is_true((payload or {}).get("permitir_id_duplicado"))
         with ATIVACAO_LOCK:
             path, workbook, sheet, table, mapping = self._load()
             rows = self._read_rows(sheet, table, mapping)
-            current = next((item for item in rows if _id_key(item["id"]) == _id_key(item_id)), None)
+            current = self._find_item(rows, item_id, row_number)
             if current is None:
                 workbook.close()
                 raise DataClientError(f"Registro ID {item_id} não encontrado.", status_code=404)
             normalized = self._validate(payload, current=current)
-            if any(
+            id_changed = _id_key(normalized["id"]) != _id_key(current["id"])
+            if id_changed and not allow_duplicate_id and any(
                 item["_row"] != current["_row"]
                 and _id_key(item["id"]) == _id_key(normalized["id"])
                 for item in rows
@@ -582,13 +622,13 @@ class AtivacaoClient:
                 if field in {"data_agendamento", "data_execucao"}:
                     cell.number_format = "dd/mm/yyyy"
             self._save_atomic(path, workbook)
-        return self.get(normalized["id"])
+        return self.get(normalized["id"], row_number=current["_row"])
 
-    def delete(self, item_id) -> dict:
+    def delete(self, item_id, row_number=None) -> dict:
         with ATIVACAO_LOCK:
             path, workbook, sheet, table, mapping = self._load()
             rows = self._read_rows(sheet, table, mapping)
-            current = next((item for item in rows if _id_key(item["id"]) == _id_key(item_id)), None)
+            current = self._find_item(rows, item_id, row_number)
             if current is None:
                 workbook.close()
                 raise DataClientError(f"Registro ID {item_id} não encontrado.", status_code=404)
