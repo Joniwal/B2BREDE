@@ -115,8 +115,7 @@ body {
 }
 
 /* ---------------------------------------------------------------------- */
-/* KPI cards — mesma linguagem visual da imagem de referência (cores       */
-/* sólidas, ícone à esquerda, número grande à direita)                     */
+/* KPI cards — gradientes modernos, ícone à esquerda e número em destaque. */
 /* ---------------------------------------------------------------------- */
 .kpi-card {
   border-radius: var(--card-radius);
@@ -126,9 +125,20 @@ body {
   align-items: center;
   gap: 14px;
   height: 90px;
-  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, .13);
   overflow: hidden;
   position: relative;
+  isolation: isolate;
+}
+.kpi-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 88% 10%, rgba(255,255,255,.28), transparent 34%),
+    linear-gradient(115deg, rgba(255,255,255,.08), transparent 48%);
+  pointer-events: none;
+  z-index: -1;
 }
 .kpi-clickable {
   cursor: pointer;
@@ -155,11 +165,11 @@ body {
   line-height: 1.1;
   word-break: break-word;
 }
-.kpi-orange { background-color: #f0913e; }
-.kpi-green  { background-color: #59a869; }
-.kpi-red    { background-color: #d9483a; }
-.kpi-blue   { background-color: #3d95c4; }
-.kpi-grey   { background-color: #8b96a5; }
+.kpi-orange { background: linear-gradient(135deg, #c2410c 0%, #fb923c 100%); }
+.kpi-green  { background: linear-gradient(135deg, #047857 0%, #34d399 100%); }
+.kpi-red    { background: linear-gradient(135deg, #be123c 0%, #fb7185 100%); }
+.kpi-blue   { background: linear-gradient(135deg, #1d4ed8 0%, #38bdf8 100%); }
+.kpi-grey   { background: linear-gradient(135deg, #334155 0%, #64748b 100%); }
 
 /* ---------------------------------------------------------------------- */
 /* Fechamento Geral — matriz Atividade x Status                            */
@@ -296,15 +306,24 @@ body {
 
 .em-campo-card {
   border-left: 0;
+  border: 0;
+  background: linear-gradient(135deg, #0f766e 0%, #22c55e 100%);
+  box-shadow: 0 8px 20px rgba(15, 118, 110, .2);
   min-height: 100%;
   cursor: pointer;
   transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
 }
 
 .em-campo-card:hover {
-  border-color: rgba(47, 90, 168, .4);
-  box-shadow: 0 5px 14px rgba(47, 90, 168, .14);
+  box-shadow: 0 12px 25px rgba(15, 118, 110, .28);
   transform: translateY(-1px);
+}
+
+.em-campo-card h6,
+.em-campo-card .em-campo-card-body,
+.em-campo-card .em-campo-card-date,
+.em-campo-card .em-campo-export-button {
+  color: #fff;
 }
 
 .em-campo-card:focus-visible {
@@ -313,8 +332,7 @@ body {
 }
 
 .em-campo-card.is-filtered {
-  border-color: #2f5aa8;
-  box-shadow: 0 0 0 2px rgba(47, 90, 168, .14);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, .22), 0 12px 25px rgba(15, 118, 110, .28);
 }
 
 .em-campo-export-button {
@@ -339,7 +357,7 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #2f5aa8;
+  color: #fff;
   text-align: center;
 }
 
@@ -355,7 +373,7 @@ body {
 }
 
 .em-campo-card-date {
-  color: #6b7280;
+  color: rgba(255,255,255,.88);
   font-size: 7.5pt;
   margin-top: 7px;
 }
@@ -418,6 +436,24 @@ body {
   color: #fff;
   text-align: center;
   white-space: nowrap;
+}
+
+.site-liberado-column {
+  width: 54px;
+  min-width: 54px;
+}
+
+.site-liberado-icon {
+  font-size: 1.2rem;
+  cursor: help;
+}
+
+.site-liberado-sim {
+  color: #198754;
+}
+
+.site-liberado-nao {
+  color: #dc3545;
 }
 /* As cores dos status são aplicadas via style inline (veja statusColor() em
    main.js) — isso permite acrescentar novos status sem precisar editar CSS. */

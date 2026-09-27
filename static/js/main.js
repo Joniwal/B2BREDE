@@ -137,7 +137,7 @@ const SELECT_FIELDS_WITH_FALLBACK = ["CIDADE", "ATIVIDADE", "TECNOLOGIA", "EXECU
 
 const FORM_FIELDS = [
   "IDCLIENTE", "CLIENTE", "ENDERECO", "CIDADE", "PRODUTO", "ATIVIDADE",
-  "TECNOLOGIA", "VT", "DATADISPARO", "RETORNOPCC", "DATAAGENDAMENTO",
+  "TECNOLOGIA", "SITELIBERADO", "VT", "DATADISPARO", "RETORNOPCC", "DATAAGENDAMENTO",
   "DATACONCLUSAO", "OBSERVACAO", "STATUS", "EXECUTADOPOR", "TIPOCABO",
   "METRAGEM", "OBSERVACAOCONCLUSAO", "NUMDRAFT", "ROTA", "USUARIO",
 ];
@@ -245,7 +245,26 @@ function populateFixedFormSelects() {
 
 function populateFilterSelects() {
   populateSelect("fCidade", CIDADE_OPTIONS, "Todas as cidades");
+  populateSelect("fTecnologia", TECNOLOGIA_OPTIONS, "Todas");
   populateSelect("fExecutadoPor", EXECUTADOPOR_OPTIONS, "Todos");
+}
+
+function isErbTechnology(value) {
+  return String(value || "").trim().toUpperCase() === "ERB";
+}
+
+function isYesValue(value) {
+  return ["SIM", "S", "1", "TRUE"].includes(String(value || "").trim().toUpperCase());
+}
+
+function updateSiteLiberadoVisibility({ resetWhenHidden = true } = {}) {
+  const wrapper = document.getElementById("siteLiberadoField");
+  const selector = document.getElementById("f_SITELIBERADO");
+  const isErb = isErbTechnology(document.getElementById("f_TECNOLOGIA").value);
+  wrapper.classList.toggle("d-none", !isErb);
+  selector.disabled = !isErb;
+  if (!isErb && resetWhenHidden) selector.value = "NÃO";
+  if (isErb && !["SIM", "NÃO"].includes(selector.value)) selector.value = "NÃO";
 }
 
 /** Define o valor de um combobox com fallback: se o valor não existir entre
@@ -274,7 +293,7 @@ function clearSelectFallbackOptions(selectId) {
 }
 
 function limparTodosFiltros() {
-  ["fCliente", "fId", "fCidade", "fExecutadoPor", "fStatus", "fMes", "fDataInicio", "fDataFim"].forEach((id) => {
+  ["fCliente", "fId", "fCidade", "fTecnologia", "fExecutadoPor", "fStatus", "fMes", "fDataInicio", "fDataFim"].forEach((id) => {
     const field = document.getElementById(id);
     if (field) field.value = "";
   });
@@ -295,7 +314,7 @@ function filtrarAtividadesEmCampoHoje() {
     return;
   }
 
-  ["fCliente", "fId", "fCidade", "fExecutadoPor", "fMes"].forEach((id) => {
+  ["fCliente", "fId", "fCidade", "fTecnologia", "fExecutadoPor", "fMes"].forEach((id) => {
     document.getElementById(id).value = "";
   });
   document.getElementById("quickSearch").value = "";
@@ -370,7 +389,7 @@ function bindEvents() {
   ["fCliente", "fId"].forEach((id) => {
     document.getElementById(id).addEventListener("input", applyLiveFilter);
   });
-  ["fCidade", "fExecutadoPor", "fStatus", "fMes", "fDataInicio", "fDataFim"].forEach((id) => {
+  ["fCidade", "fTecnologia", "fExecutadoPor", "fStatus", "fMes", "fDataInicio", "fDataFim"].forEach((id) => {
     document.getElementById(id).addEventListener("change", applyLiveFilter);
   });
 
@@ -395,6 +414,9 @@ function bindEvents() {
 
   document.getElementById("btnNovoRegistro").addEventListener("click", () => openCreateModal());
   document.getElementById("btnSalvarItem").addEventListener("click", () => submitItemForm());
+  document.getElementById("f_TECNOLOGIA").addEventListener("change", () => {
+    updateSiteLiberadoVisibility();
+  });
 
   document.getElementById("btnAtualizar").addEventListener("click", () => {
     loadItems();
@@ -453,6 +475,7 @@ function collectFilters() {
     cliente: document.getElementById("fCliente").value || undefined,
     id: document.getElementById("fId").value || undefined,
     cidade: document.getElementById("fCidade").value || undefined,
+    tecnologia: document.getElementById("fTecnologia").value || undefined,
     executadopor: document.getElementById("fExecutadoPor").value || undefined,
     status: document.getElementById("fStatus").value || undefined,
     mes: document.getElementById("fMes").value || undefined,
@@ -472,6 +495,7 @@ function buildQueryParams(extra = {}) {
     cliente: state.filters.cliente,
     id: state.filters.id,
     cidade: state.filters.cidade,
+    tecnologia: state.filters.tecnologia,
     executadopor: state.filters.executadopor,
     status: state.filters.status,
     mes: state.filters.mes,
@@ -547,7 +571,7 @@ async function loadItems() {
     renderPagination(data.total, data.page, data.page_size);
   } catch (err) {
     document.getElementById("itemsTableBody").innerHTML =
-      `<tr><td colspan="8" class="text-center text-danger py-4">Erro ao carregar registros.</td></tr>`;
+      `<tr><td colspan="9" class="text-center text-danger py-4">Erro ao carregar registros.</td></tr>`;
   }
 }
 
@@ -595,7 +619,7 @@ function statusColor(status) {
 function renderTable(items) {
   const tbody = document.getElementById("itemsTableBody");
   if (!items || items.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">Nenhum registro encontrado.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">Nenhum registro encontrado.</td></tr>`;
     return;
   }
   tbody.innerHTML = items.map((item) => `
@@ -607,6 +631,7 @@ function renderTable(items) {
       <td><span class="status-badge" style="background-color:${statusColor(item.STATUS)};">${escapeHtml(item.STATUS || "—")}</span></td>
       <td>${formatDateBR(item.DATAAGENDAMENTO)}</td>
       <td class="text-center">${String(item.NUMDRAFT || "").trim() ? "Sim" : "Não"}</td>
+      <td class="text-center site-liberado-column">${renderSiteLiberadoIcon(item)}</td>
       <td class="text-end">
         <i class="bi bi-eye action-icon" title="Ver / editar" data-action="view" data-id="${escapeHtml(item.IDCLIENTE)}"></i>
       </td>
@@ -616,6 +641,14 @@ function renderTable(items) {
   tbody.querySelectorAll('[data-action="view"]').forEach((el) => {
     el.addEventListener("click", () => openEditModal(el.dataset.id));
   });
+}
+
+function renderSiteLiberadoIcon(item) {
+  if (!isErbTechnology(item.TECNOLOGIA)) return "";
+  const liberado = isYesValue(item.SITELIBERADO);
+  const status = liberado ? "Site liberado" : "Site não liberado";
+  const cssClass = liberado ? "site-liberado-sim" : "site-liberado-nao";
+  return `<i class="bi bi-broadcast-pin site-liberado-icon ${cssClass}" title="${status}" aria-label="${status}"></i>`;
 }
 
 function renderPagination(total, page, pageSize) {
@@ -976,12 +1009,15 @@ async function openDateItemsModal(dateStr, dateField = "DATAAGENDAMENTO", status
 function clearItemForm() {
   FORM_FIELDS.forEach((f) => {
     const el = document.getElementById(`f_${f}`);
-    if (el) el.value = "";
+    if (!el) return;
+    if (f === "SITELIBERADO") el.value = "NÃO";
+    else el.value = "";
   });
   SELECT_FIELDS_WITH_FALLBACK.forEach((f) => clearSelectFallbackOptions(`f_${f}`));
   document.getElementById("f_originalId").value = "";
   document.getElementById("lastUsuarioInfo").textContent = "";
   document.getElementById("itemModalAlert").innerHTML = "";
+  updateSiteLiberadoVisibility();
 }
 
 function openCreateModal() {
@@ -1005,12 +1041,17 @@ async function openEditModal(id) {
       if (f === "USUARIO") return; // tratado à parte: combobox sempre inicia em branco
       const el = document.getElementById(`f_${f}`);
       if (!el) return;
+      if (f === "SITELIBERADO") {
+        el.value = isYesValue(item[f]) ? "SIM" : "NÃO";
+        return;
+      }
       if (SELECT_FIELDS_WITH_FALLBACK.includes(f)) {
         setSelectValueWithFallback(`f_${f}`, item[f] ?? "");
       } else {
         el.value = item[f] ?? "";
       }
     });
+    updateSiteLiberadoVisibility({ resetWhenHidden: false });
     document.getElementById("lastUsuarioInfo").textContent = item.USUARIO
       ? `Último registro por: ${item.USUARIO}`
       : "";
@@ -1035,7 +1076,14 @@ async function submitItemForm() {
   const payload = {};
   FORM_FIELDS.forEach((f) => {
     const el = document.getElementById(`f_${f}`);
-    if (el) payload[f] = el.value;
+    if (!el) return;
+    if (f === "SITELIBERADO") {
+      payload[f] = isErbTechnology(document.getElementById("f_TECNOLOGIA").value)
+        ? (el.value || "NÃO")
+        : "";
+    } else {
+      payload[f] = el.value;
+    }
   });
 
   // Usuário + data/hora automáticos: o combobox só guarda o nome escolhido;

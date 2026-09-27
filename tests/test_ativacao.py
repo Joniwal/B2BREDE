@@ -214,7 +214,7 @@ class AtivacaoClientTests(unittest.TestCase):
         dashboard = self.client.dashboard({"data_execucao": today})
         self.assertEqual(dashboard["kpis"]["total"], 2)
         self.assertEqual(dashboard["por_status"]["values"], [1, 1, 0, 0])
-        self.assertEqual(dashboard["por_tecnologia"]["values"], [1, 1])
+        self.assertEqual(dashboard["por_tecnologia"]["values"], [1, 1, 0])
         self.assertEqual(dashboard["por_faturado"]["values"], [1, 1])
         self.assertEqual(dashboard["por_rfs"]["values"], [1, 1])
         self.assertEqual(dashboard["por_data_execucao"], {"labels": [today], "values": [2]})

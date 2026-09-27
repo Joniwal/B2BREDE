@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import PatternFill
+from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
 from excel_client import DataClient, FIELDS
@@ -44,7 +45,8 @@ class FechamentoExportTests(unittest.TestCase):
         worksheet.append(linha("3", "INSTALAÇÃO", "AGENDADO", datetime(2026, 8, 24), "", "=LEN(B5)"))
         worksheet.append(linha("4", "REPARO", "CONCLUIDO", datetime(2026, 8, 24), datetime(2026, 8, 23), "=LEN(B6)"))
 
-        table = Table(displayName="TabelaRede", ref=f"A1:V{worksheet.max_row}")
+        last_column = get_column_letter(len(headers))
+        table = Table(displayName="TabelaRede", ref=f"A1:{last_column}{worksheet.max_row}")
         table.tableStyleInfo = TableStyleInfo(
             name="TableStyleMedium4",
             showFirstColumn=False,
@@ -88,7 +90,8 @@ class FechamentoExportTests(unittest.TestCase):
             try:
                 worksheet = exported["REDEB2B"]
                 table = worksheet.tables["TabelaRede"]
-                self.assertEqual(table.ref, "A1:V3")
+                extra_column = get_column_letter(len(FIELDS) + 1)
+                self.assertEqual(table.ref, f"A1:{extra_column}3")
                 self.assertEqual(table.tableStyleInfo.name, "TableStyleMedium4")
                 self.assertTrue(table.tableStyleInfo.showRowStripes)
                 self.assertEqual(worksheet.freeze_panes, "A2")
@@ -96,8 +99,8 @@ class FechamentoExportTests(unittest.TestCase):
 
                 ids = [worksheet.cell(row, 1).value for row in range(2, 4)]
                 self.assertEqual(ids, ["1", "2"])
-                self.assertEqual(worksheet["V2"].value, "=LEN(B2)")
-                self.assertEqual(worksheet["V3"].value, "=LEN(B3)")
+                self.assertEqual(worksheet[f"{extra_column}2"].value, "=LEN(B2)")
+                self.assertEqual(worksheet[f"{extra_column}3"].value, "=LEN(B3)")
                 self.assertEqual(worksheet["A2"].fill.fgColor.rgb, "00FFF2CC")
             finally:
                 exported.close()
@@ -127,9 +130,13 @@ class FechamentoExportTests(unittest.TestCase):
             try:
                 worksheet = exported["REDEB2B"]
                 table = worksheet.tables["TabelaRede"]
-                self.assertEqual(table.ref, "A1:V2")
+                extra_column = get_column_letter(len(FIELDS) + 1)
+                self.assertEqual(table.ref, f"A1:{extra_column}2")
                 self.assertEqual(table.tableStyleInfo.name, "TableStyleMedium4")
-                self.assertTrue(all(worksheet.cell(2, col).value is None for col in range(1, 23)))
+                self.assertTrue(all(
+                    worksheet.cell(2, col).value is None
+                    for col in range(1, len(FIELDS) + 2)
+                ))
             finally:
                 exported.close()
 

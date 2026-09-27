@@ -58,7 +58,7 @@ HEADER_ALIASES = {
 }
 
 FIXED_OPTIONS = {
-    "tecnologias": ["ERB", "GPON"],
+    "tecnologias": ["ERB", "GPON","DATA CENTER"],
     "empresas": ["VIVO", "RS TELECOM"],
     "status": ["OK", "NOK", "FECHAMENTO INTERNO", "NÃO INSTALADO"],
     "sim_nao": ["SIM", "NÃO"],

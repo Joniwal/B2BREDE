@@ -43,13 +43,14 @@ EXCEL_LOCK = threading.RLock()
 # Colunas oficiais da planilha REDEB2B, na ordem definida no escopo.
 FIELDS = [
     "IDCLIENTE", "CLIENTE", "ENDERECO", "CIDADE", "PRODUTO", "ATIVIDADE",
-    "TECNOLOGIA", "VT", "DATADISPARO", "RETORNOPCC", "DATAAGENDAMENTO",
+    "TECNOLOGIA", "SITELIBERADO", "VT", "DATADISPARO", "RETORNOPCC", "DATAAGENDAMENTO",
     "DATACONCLUSAO", "OBSERVACAO", "STATUS", "EXECUTADOPOR", "TIPOCABO",
     "METRAGEM", "OBSERVACAOCONCLUSAO", "NUMDRAFT", "ROTA", "USUARIO",
 ]
 
 # Campos de data que precisam de tratamento especial (ISO yyyy-mm-dd).
 DATE_FIELDS = {"DATADISPARO", "DATAAGENDAMENTO", "DATACONCLUSAO"}
+OPTIONAL_FIELDS = {"SITELIBERADO"}
 
 # Padrões aceitos ao LER datas do Excel: ISO (yyyy-mm-dd, com ou sem hora) e
 # pt-BR (dd/mm/yyyy) — este último é comum quando alguém edita a data
@@ -112,6 +113,18 @@ def _strip_accents(value: str) -> str:
         return ""
     nfkd = unicodedata.normalize("NFKD", str(value))
     return "".join(c for c in nfkd if not unicodedata.combining(c)).lower()
+
+
+def _header_key(value) -> str:
+    """Normaliza cabeçalhos para comparar nomes de colunas do Excel."""
+    return re.sub(r"[^A-Z0-9]", "", _strip_accents(value).upper())
+
+
+def _normalize_site_liberado(tecnologia, value) -> str:
+    if str(tecnologia or "").strip().upper() != "ERB":
+        return ""
+    liberado = _strip_accents(value).strip()
+    return "SIM" if liberado in {"sim", "s", "1", "true"} else "NÃO"
 
 
 def _parse_date(value):
@@ -955,7 +968,7 @@ class DataClient:
         rows.append(new_row)
         self._excel_write_all(rows)
         logger.info("Registro criado: IDCLIENTE=%s", data.get("IDCLIENTE"))
-        return new_row
+        return self.get_item(data.get("IDCLIENTE"))
 
     def update_item(self, item_id, data):
         data = self._sanitize_and_validate(data, is_new=False)
@@ -964,6 +977,10 @@ class DataClient:
         for row in rows:
             if str(row.get("IDCLIENTE")) == str(item_id):
                 row.update(data)
+                row["SITELIBERADO"] = _normalize_site_liberado(
+                    row.get("TECNOLOGIA"),
+                    row.get("SITELIBERADO"),
+                )
                 found = True
                 break
         if not found:
@@ -1174,6 +1191,7 @@ class DataClient:
         cliente = filters.get("cliente")
         idcliente = filters.get("id")
         cidade = filters.get("cidade")
+        tecnologia = filters.get("tecnologia")
         executadopor = filters.get("executadopor")
         status = filters.get("status")
         mes = filters.get("mes")
@@ -1187,6 +1205,10 @@ class DataClient:
             if idcliente and str(idcliente) not in str(row.get("IDCLIENTE", "")):
                 return False
             if cidade and _strip_accents(cidade) not in _strip_accents(row.get("CIDADE")):
+                return False
+            if tecnologia and _strip_accents(str(tecnologia).strip()) != _strip_accents(
+                str(row.get("TECNOLOGIA") or "").strip()
+            ):
                 return False
             if executadopor and _strip_accents(executadopor) not in _strip_accents(row.get("EXECUTADOPOR")):
                 return False
@@ -1283,6 +1305,14 @@ class DataClient:
                 value = str(value)[:10]
             clean[field] = value
 
+        if "SITELIBERADO" in clean:
+            clean["SITELIBERADO"] = _normalize_site_liberado(
+                clean.get("TECNOLOGIA"),
+                clean.get("SITELIBERADO"),
+            )
+        elif is_new and str(clean.get("TECNOLOGIA") or "").strip().upper() == "ERB":
+            clean["SITELIBERADO"] = "NÃO"
+
         if is_new and not clean.get("IDCLIENTE"):
             raise DataClientError("IDCLIENTE é obrigatório para criar um registro.")
         if is_new and not clean.get("CLIENTE"):
@@ -1354,7 +1384,13 @@ class DataClient:
                 logger.exception("Erro lendo Excel")
                 raise DataClientError(f"Erro ao ler o arquivo Excel: {exc}", status_code=500) from exc
 
+        columns_by_key = {_header_key(column): column for column in df.columns}
         for field in FIELDS:
+            source_column = columns_by_key.get(_header_key(field))
+            if field == "SITELIBERADO" and source_column is None:
+                source_column = columns_by_key.get("SITE")
+            if field not in df.columns and source_column is not None:
+                df[field] = df[source_column]
             if field not in df.columns:
                 df[field] = ""
         df = df.fillna("")
@@ -1410,16 +1446,23 @@ class DataClient:
                     )
 
                 headers = {}
+                fields_by_key = {_header_key(field): field for field in FIELDS}
+                fields_by_key["SITE"] = "SITELIBERADO"
                 for column in range(left, right + 1):
                     name = str(worksheet.cell(header_row, column).value or "").strip().upper()
                     if name:
-                        headers[name] = column
-                missing = [field for field in FIELDS if field not in headers]
+                        canonical = fields_by_key.get(_header_key(name), name)
+                        headers[canonical] = column
+                missing = [
+                    field for field in FIELDS
+                    if field not in headers and field not in OPTIONAL_FIELDS
+                ]
                 if missing:
                     raise DataClientError(
                         "Colunas ausentes no Excel: " + ", ".join(missing),
                         status_code=409,
                     )
+                writable_fields = [field for field in FIELDS if field in headers]
 
                 existing = {}
                 for row_number in range(header_row + 1, table_bottom + 1):
@@ -1479,13 +1522,13 @@ class DataClient:
                 # Exclusão: limpa valores, sem remover linha, estilo ou tabela.
                 for item_id in set(existing) - set(desired):
                     row_number = existing[item_id]
-                    for field in FIELDS:
+                    for field in writable_fields:
                         assign(row_number, field, None)
 
                 # Atualização: somente valores que mudaram; estilos permanecem.
                 for item_id in set(existing) & set(desired):
                     row_number = existing[item_id]
-                    for field in FIELDS:
+                    for field in writable_fields:
                         assign(row_number, field, desired[item_id].get(field, ""))
 
                 # Inclusão: reutiliza slots vazios ou amplia a MESMA tabela.
@@ -1494,7 +1537,7 @@ class DataClient:
                     for row_number in range(header_row + 1, table_bottom + 1)
                     if all(
                         worksheet.cell(row_number, headers[field]).value in (None, "")
-                        for field in FIELDS
+                        for field in writable_fields
                     )
                 ]
                 for item_id in sorted(set(desired) - set(existing)):
@@ -1528,7 +1571,7 @@ class DataClient:
                         )
                         if table.autoFilter is not None:
                             table.autoFilter.ref = table.ref
-                    for field in FIELDS:
+                    for field in writable_fields:
                         assign(row_number, field, desired[item_id].get(field, ""))
 
                 # Salva primeiro num temporário do mesmo volume e valida antes

@@ -87,6 +87,10 @@ def create_app():
     def ativacao():
         return render_template("ativacao.html")
 
+    @app.route("/reparo")
+    def reparo():
+        return render_template("reparo.html")
+
     @app.post("/api/shutdown")
     def shutdown():
         # Impede que outro computador da rede encerre a aplicação. O botão

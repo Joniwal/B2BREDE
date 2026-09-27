@@ -8,8 +8,8 @@
   <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/icon-32.png') }}">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-  <link href="{{ url_for('static', filename='css/styles.css') }}?v=ativacao-2" rel="stylesheet">
-  <link href="{{ url_for('static', filename='css/ativacao.css') }}?v=ativacao-2" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/styles.css') }}?v=gradient-cards-1" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/ativacao.css') }}?v=gradient-cards-1" rel="stylesheet">
 </head>
 <body>
   <nav class="topbar ativacao-topbar d-flex align-items-center justify-content-between px-3">
@@ -20,6 +20,7 @@
     <div class="d-flex align-items-center gap-2">
       <a href="/" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Painel principal</a>
       <a href="/dashboard" class="btn btn-outline-primary btn-sm"><i class="bi bi-bar-chart-line"></i> Dashboard B2B</a>
+      <a href="/reparo" class="btn btn-outline-primary btn-sm"><i class="bi bi-tools"></i> Reparo</a>
       <button class="btn btn-outline-secondary btn-sm" id="btnAtualizarAtivacao" type="button"><i class="bi bi-arrow-clockwise"></i> Atualizar</button>
       <button class="btn btn-ativacao btn-sm" id="btnNovaAtivacao" type="button"><i class="bi bi-plus-lg"></i> Nova atividade</button>
       <button class="btn btn-outline-danger btn-sm btn-encerrar-app" type="button" title="Encerrar o aplicativo local"><i class="bi bi-power"></i> Encerrar aplicativo</button>

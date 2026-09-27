@@ -17,12 +17,14 @@ from flask import Blueprint, request, jsonify, send_file
 
 from excel_client import DataClient, DataClientError, FIELDS
 from ativacao_client import AtivacaoClient, EXCEL_HEADERS as ATIVACAO_HEADERS, FIELDS as ATIVACAO_FIELDS
+from reparo_client import ReparoClient, EXCEL_HEADERS as REPARO_HEADERS, FIELDS as REPARO_FIELDS
 
 logger = logging.getLogger("redeb2b.api")
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 
 data_client = DataClient()
 ativacao_client = AtivacaoClient()
+reparo_client = ReparoClient()
 
 
 def _error_response(exc: DataClientError):
@@ -34,6 +36,7 @@ def _parse_pagination_and_filters():
         "cliente": request.args.get("cliente"),
         "id": request.args.get("id"),
         "cidade": request.args.get("cidade"),
+        "tecnologia": request.args.get("tecnologia"),
         "executadopor": request.args.get("executadopor"),
         "status": request.args.get("status"),
         "mes": request.args.get("mes"),
@@ -60,6 +63,19 @@ def _parse_ativacao_filters():
         "data_agendamento": request.args.get("dataAgendamento"),
         "mes_execucao": request.args.get("mesExecucao"),
         "q": request.args.get("q"),
+    }
+    return {key: value for key, value in filters.items() if value}
+
+
+def _parse_reparo_filters():
+    filters = {
+        "status": request.args.get("status"),
+        "uf": request.args.get("uf"),
+        "eps": request.args.get("eps"),
+        "tecnologia": request.args.get("tecnologia"),
+        "busca": request.args.get("busca"),
+        "de": request.args.get("de"),
+        "ate": request.args.get("ate"),
     }
     return {key: value for key, value in filters.items() if value}
 
@@ -414,3 +430,127 @@ def ativacao_export():
     except Exception:  # noqa: BLE001
         logger.exception("Erro inesperado em GET /api/ativacao/export")
         return jsonify({"ok": False, "error": "Erro interno ao exportar as ativações."}), 500
+
+
+# ---------------------------------------------------------------------------
+# REPARO
+# ---------------------------------------------------------------------------
+
+@api_bp.route("/reparo/status", methods=["GET"])
+def reparo_status():
+    try:
+        return jsonify({"ok": True, "data": reparo_client.status_file()})
+    except DataClientError as exc:
+        return _error_response(exc)
+
+
+@api_bp.route("/reparo/options", methods=["GET"])
+def reparo_options():
+    try:
+        return jsonify({"ok": True, "data": reparo_client.options()})
+    except DataClientError as exc:
+        return _error_response(exc)
+
+
+@api_bp.route("/reparo/records", methods=["GET"])
+def reparo_records():
+    try:
+        result = reparo_client.list(
+            _parse_reparo_filters(),
+            page=int(request.args.get("page", 1)),
+            page_size=int(request.args.get("page_size", 25)),
+            sort=request.args.get("sort", "DATA_ABERTURA:desc"),
+        )
+        return jsonify({"ok": True, "data": result})
+    except DataClientError as exc:
+        return _error_response(exc)
+    except ValueError:
+        return jsonify({"ok": False, "error": "Paginação inválida."}), 400
+    except Exception:  # noqa: BLE001
+        logger.exception("Erro inesperado em GET /api/reparo/records")
+        return jsonify({"ok": False, "error": "Erro interno ao listar reparos."}), 500
+
+
+@api_bp.route("/reparo/records", methods=["POST"])
+def reparo_create_record():
+    try:
+        payload = request.get_json(force=True, silent=True) or {}
+        return jsonify({"ok": True, "data": reparo_client.create(payload)}), 201
+    except DataClientError as exc:
+        return _error_response(exc)
+    except Exception:  # noqa: BLE001
+        logger.exception("Erro inesperado em POST /api/reparo/records")
+        return jsonify({"ok": False, "error": "Erro interno ao salvar o reparo."}), 500
+
+
+@api_bp.route("/reparo/records/<path:item_id>", methods=["GET"])
+def reparo_get_record(item_id):
+    try:
+        return jsonify({
+            "ok": True,
+            "data": reparo_client.get(item_id, request.args.get("row")),
+        })
+    except DataClientError as exc:
+        return _error_response(exc)
+
+
+@api_bp.route("/reparo/records/<path:item_id>", methods=["PATCH"])
+def reparo_update_record(item_id):
+    try:
+        payload = request.get_json(force=True, silent=True) or {}
+        result = reparo_client.update(item_id, payload, request.args.get("row"))
+        return jsonify({"ok": True, "data": result})
+    except DataClientError as exc:
+        return _error_response(exc)
+    except Exception:  # noqa: BLE001
+        logger.exception("Erro inesperado ao atualizar reparo ID %s", item_id)
+        return jsonify({"ok": False, "error": "Erro interno ao atualizar o reparo."}), 500
+
+
+@api_bp.route("/reparo/records/<path:item_id>", methods=["DELETE"])
+def reparo_delete_record(item_id):
+    try:
+        result = reparo_client.delete(item_id, request.args.get("row"))
+        return jsonify({"ok": True, "data": result})
+    except DataClientError as exc:
+        return _error_response(exc)
+    except Exception:  # noqa: BLE001
+        logger.exception("Erro inesperado ao excluir reparo ID %s", item_id)
+        return jsonify({"ok": False, "error": "Erro interno ao excluir o reparo."}), 500
+
+
+@api_bp.route("/reparo/dashboard", methods=["GET"])
+def reparo_dashboard():
+    try:
+        return jsonify({
+            "ok": True,
+            "data": reparo_client.dashboard(_parse_reparo_filters()),
+        })
+    except DataClientError as exc:
+        return _error_response(exc)
+    except Exception:  # noqa: BLE001
+        logger.exception("Erro inesperado em GET /api/reparo/dashboard")
+        return jsonify({"ok": False, "error": "Erro interno ao gerar o painel de reparo."}), 500
+
+
+@api_bp.route("/reparo/export", methods=["GET"])
+def reparo_export():
+    try:
+        rows = reparo_client.export_rows(_parse_reparo_filters())
+        frame = pd.DataFrame(rows, columns=REPARO_FIELDS)
+        frame.columns = REPARO_HEADERS
+        buffer = io.BytesIO()
+        frame.to_excel(buffer, index=False, sheet_name="REPARO")
+        buffer.seek(0)
+        filename = f"REPARO_export_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=filename,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+    except DataClientError as exc:
+        return _error_response(exc)
+    except Exception:  # noqa: BLE001
+        logger.exception("Erro inesperado em GET /api/reparo/export")
+        return jsonify({"ok": False, "error": "Erro interno ao exportar os reparos."}), 500
