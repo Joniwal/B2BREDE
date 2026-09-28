@@ -1,11 +1,13 @@
 import tempfile
 import unittest
+import zipfile
 from datetime import date, timedelta
 from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import quote
 
 from openpyxl import Workbook, load_workbook
+from openpyxl.worksheet.table import Table, TableStyleInfo
 
 import api
 from app import create_app
@@ -43,7 +45,7 @@ class ReparoClientTests(unittest.TestCase):
         data.update(changes)
         return data
 
-    def test_creates_shared_excel_table_and_crud(self):
+    def test_creates_shared_excel_base_and_crud(self):
         created = self.client.create(self.payload())
         self.assertEqual(created["ID_VANTIVE"], "V-1001")
         self.assertEqual(created["DATA_ABERTURA"], "2026-09-24")
@@ -51,7 +53,8 @@ class ReparoClientTests(unittest.TestCase):
         workbook = load_workbook(self.path)
         sheet = workbook["REPARO"]
         self.assertEqual([sheet.cell(1, index).value for index in range(1, len(EXCEL_HEADERS) + 1)], EXCEL_HEADERS)
-        self.assertIn("REPARO", sheet.tables)
+        self.assertEqual(len(sheet.tables), 0)
+        self.assertEqual(sheet.auto_filter.ref, f"A1:{sheet.cell(1, len(EXCEL_HEADERS)).column_letter}2")
         self.assertIn("LISTAS", workbook.sheetnames)
         workbook.close()
 
@@ -187,11 +190,44 @@ class ReparoClientTests(unittest.TestCase):
 
         prepared = load_workbook(self.path)
         sheet = prepared["BD"]
-        self.assertIn("REPARO", sheet.tables)
+        self.assertEqual(len(sheet.tables), 0)
+        self.assertEqual(sheet.auto_filter.ref, f"A1:{sheet.cell(1, sheet.max_column).column_letter}2")
         normalized_headers = [sheet.cell(1, index).value for index in range(1, sheet.max_column + 1)]
         self.assertIn("TECNOLOGIA", normalized_headers)
         self.assertEqual(sheet["D2"].value, "CLIENTE EXISTENTE")
         prepared.close()
+
+    def test_replaces_structured_table_with_excel_compatible_filter(self):
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "Reparo"
+        sheet.append(EXCEL_HEADERS)
+        row = [""] * len(EXCEL_HEADERS)
+        row[EXCEL_HEADERS.index("ID_VANTIVE")] = "SEM-REPARO-001"
+        row[EXCEL_HEADERS.index("CLIENTE")] = "CLIENTE PRESERVADO"
+        sheet.append(row)
+        last_column = sheet.cell(1, len(EXCEL_HEADERS)).column_letter
+        table = Table(displayName="REPARO", ref=f"A1:{last_column}2")
+        table.tableStyleInfo = TableStyleInfo(
+            name="TableStyleMedium4", showFirstColumn=False,
+            showLastColumn=False, showRowStripes=True, showColumnStripes=False,
+        )
+        sheet.add_table(table)
+        workbook.save(self.path)
+        workbook.close()
+
+        listed = self.client.list()
+        self.assertEqual(listed["total"], 1)
+        self.assertEqual(listed["items"][0]["CLIENTE"], "CLIENTE PRESERVADO")
+
+        repaired = load_workbook(self.path)
+        sheet = repaired["Reparo"]
+        self.assertEqual(len(sheet.tables), 0)
+        self.assertEqual(sheet.auto_filter.ref, f"A1:{last_column}2")
+        self.assertEqual(sheet.cell(2, EXCEL_HEADERS.index("CLIENTE") + 1).value, "CLIENTE PRESERVADO")
+        repaired.close()
+        with zipfile.ZipFile(self.path) as archive:
+            self.assertFalse(any(name.startswith("xl/tables/") for name in archive.namelist()))
 
     def test_api_page_navigation_export_and_crud(self):
         app = create_app()
@@ -210,6 +246,16 @@ class ReparoClientTests(unittest.TestCase):
         javascript = (Path(__file__).parents[1] / "static" / "js" / "reparo.js").read_text(encoding="utf-8")
         self.assertGreaterEqual(javascript.count('id="refreshData"'), 2)
         self.assertIn("Reparos repetidos por LP_15", javascript)
+        self.assertIn(
+            'const TABLE_COLS = ["BD","CLIENTE","STATUS","CIDADE","DATA_ABERTURA",'
+            '"MOTIVO_REAL_BD","TMR","EPS","TECNOLOGIA"]',
+            javascript,
+        )
+        self.assertNotIn('data-view-row=', javascript)
+        self.assertIn('aria-label="Editar registro"', javascript)
+        self.assertIn('aria-label="Excluir registro"', javascript)
+        self.assertIn("renderNumberedPagination", javascript)
+        self.assertNotIn('id="prevPg"', javascript)
 
         for route in ("/", "/dashboard", "/ativacao"):
             response = http.get(route)

@@ -2,7 +2,7 @@ const COLS = ["BD","ID_VANTIVE","STATUS","RECLAMACAO","CLIENTE","ENDERECO","CIDA
 "DATA_ABERTURA","DATA_ENCERRAMENTO","BAIXA_CODIGO","GRUPO_BAIXA","USUARIO_BAIXA","REINC_30D","REINC_TIPO","KPI","TMR",
 "TEMPO_PARADA","EPS","TIPO_DEFEITO","PARADA_RELOGIO","INICIO","FIM","RECLAMACAO_CLIENTE","DESCRICAO_FALHA",
 "MOTIVO_REAL_BD","ARD_ERB","TECNICO","FILA_ENCERRAMENTO","TECNOLOGIA","TMR_PARADA","TIPO_ARD_ERB","ATUALIZADO_EM"];
-const TABLE_COLS = ["BD","ID_VANTIVE","CLIENTE","STATUS","CIDADE","UF","DATA_ABERTURA","MOTIVO_REAL_BD","TMR","EPS","TECNOLOGIA","TECNICO"];
+const TABLE_COLS = ["BD","CLIENTE","STATUS","CIDADE","DATA_ABERTURA","MOTIVO_REAL_BD","TMR","EPS","TECNOLOGIA"];
 const REQUIRED = ["ID_VANTIVE"];
 const EPS_OPTIONS = ["VIVO","RS TELECOM","STAFF"];
 const TIPO_DEFEITO_OPTIONS = ["CAMPO","SISTEMICO"];
@@ -111,6 +111,23 @@ function filtered(){
   });
 }
 function uniq(field){ return [...new Set(DATA.map(r=>r[field]).filter(Boolean))].sort(); }
+
+function renderNumberedPagination(currentPage,totalPages,totalRows){
+  const from=totalRows?(currentPage-1)*pageSize+1:0;
+  const to=Math.min(currentPage*pageSize,totalRows);
+  const values=[...new Set([1,totalPages,currentPage-1,currentPage,currentPage+1])]
+    .filter(value=>value>=1&&value<=totalPages).sort((a,b)=>a-b);
+  const controls=[];
+  controls.push(`<button class="page-btn" type="button" data-page="${currentPage-1}" aria-label="Página anterior" title="Página anterior" ${currentPage<=1?"disabled":""}>&laquo;</button>`);
+  let previous=0;
+  values.forEach(value=>{
+    if(previous&&value-previous>1) controls.push('<span class="page-ellipsis" aria-hidden="true">…</span>');
+    controls.push(`<button class="page-btn ${value===currentPage?"active":""}" type="button" data-page="${value}" ${value===currentPage?'aria-current="page"':''}>${value}</button>`);
+    previous=value;
+  });
+  controls.push(`<button class="page-btn" type="button" data-page="${currentPage+1}" aria-label="Próxima página" title="Próxima página" ${currentPage>=totalPages?"disabled":""}>&raquo;</button>`);
+  return `<div class="pager"><span>${from}–${to} de ${totalRows} registro(s)</span><div class="page-controls">${controls.join("")}</div></div>`;
+}
 
 function render(){
   document.querySelectorAll(".nav-btn[data-view]").forEach(b=>b.classList.toggle("active", b.dataset.view===view));
@@ -225,7 +242,7 @@ function renderListagem(){
     <input type="date" id="fDe" title="Data abertura — de" value="${filters.de}">
     <input type="date" id="fAte" title="Data abertura — até" value="${filters.ate}">
   </div>
-  <div class="tablewrap"><table>
+  <div class="tablewrap"><table class="reparo-list-table">
     <thead><tr>${TABLE_COLS.map(c=>`<th data-col="${c}">${c.replace(/_/g," ")}${sortCol===c?(sortDir==="asc"?" ▲":" ▼"):""}</th>`).join("")}<th>Ações</th></tr></thead>
     <tbody>${pageRows.length? pageRows.map(r=>`
       <tr>${TABLE_COLS.map(c=>{
@@ -234,11 +251,10 @@ function renderListagem(){
         if(c==="TMR") return `<td>${r[c]?fmtNum(r[c])+"h":"—"}</td>`;
         return `<td>${r[c]||"—"}</td>`;
       }).join("")}
-      <td><button class="rowbtn" data-edit="${r._id}">Editar</button><button class="rowbtn" data-view-row="${r._id}">Ver</button><button class="rowbtn" data-del="${r._id}">Excluir</button></td></tr>`).join("")
+      <td class="row-actions"><button class="rowbtn rowbtn-icon" type="button" data-edit="${r._id}" aria-label="Editar registro" title="Editar registro"><i class="bi bi-pencil-square" aria-hidden="true"></i></button><button class="rowbtn rowbtn-icon danger" type="button" data-del="${r._id}" aria-label="Excluir registro" title="Excluir registro"><i class="bi bi-trash3" aria-hidden="true"></i></button></td></tr>`).join("")
       : `<tr><td colspan="${TABLE_COLS.length+1}"><div class="empty"><b>Nenhum registro</b>Ajuste os filtros ou importe uma planilha.</div></td></tr>`}
     </tbody></table></div>
-  <div class="pager"><span>Página ${page} de ${pages}</span>
-    <div class="actions"><button class="btn" id="prevPg" ${page<=1?"disabled":""}>Anterior</button><button class="btn" id="nextPg" ${page>=pages?"disabled":""}>Próxima</button></div></div>`;
+  ${renderNumberedPagination(page,pages,rows.length)}`;
 }
 
 function openModal(html){
@@ -321,7 +337,6 @@ function wire(){
       const c=th.dataset.col; if(sortCol===c) sortDir = sortDir==="asc"?"desc":"asc"; else { sortCol=c; sortDir="asc"; } render();
     });
     document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openModal(recordForm(DATA.find(r=>r._id===b.dataset.edit))));
-    document.querySelectorAll("[data-view-row]").forEach(b=>b.onclick=()=>openModal(recordView(DATA.find(r=>r._id===b.dataset.viewRow))));
     document.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{
       const record=DATA.find(r=>r._id===b.dataset.del);
       if(record && confirm("Excluir este registro?")){
@@ -331,9 +346,9 @@ function wire(){
         }catch(error){ alert(error.message); }
       }
     });
-    const prev=document.getElementById("prevPg"), next=document.getElementById("nextPg");
-    if(prev) prev.onclick=()=>{ page--; render(); };
-    if(next) next.onclick=()=>{ page++; render(); };
+    document.querySelectorAll("[data-page]").forEach(button=>button.onclick=()=>{
+      page=Number(button.dataset.page); render();
+    });
   }
   const refreshButton=document.getElementById("refreshData");
   if(refreshButton) refreshButton.onclick=refreshData;

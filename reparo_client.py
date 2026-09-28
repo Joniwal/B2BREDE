@@ -18,13 +18,24 @@ from pathlib import Path
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill
-from openpyxl.worksheet.table import Table, TableStyleInfo
 from openpyxl.utils.cell import range_boundaries
 
 from excel_client import DataClient, DataClientError, _localizar_excel_no_onedrive
 
 
 REPARO_LOCK = threading.RLock()
+
+
+class _SheetRange:
+    """Faixa de dados usada internamente sem criar uma Tabela do Excel.
+
+    A REPARO.xlsx pode ser editada no Excel/OneDrive e não depende de recursos
+    estruturados. Manter somente o AutoFiltro da planilha evita que o Excel
+    tente reparar repetidamente /xl/tables/table1.xml.
+    """
+
+    def __init__(self, ref: str):
+        self.ref = ref
 
 FIELDS = [
     "BD", "ID_VANTIVE", "STATUS", "RECLAMACAO", "CLIENTE", "ENDERECO",
@@ -274,12 +285,6 @@ class ReparoClient:
         sheet = workbook.active
         sheet.title = "REPARO"
         sheet.append(EXCEL_HEADERS)
-        table = Table(displayName="REPARO", ref=f"A1:{sheet.cell(1, len(FIELDS)).coordinate}")
-        table.tableStyleInfo = TableStyleInfo(
-            name="TableStyleMedium4", showFirstColumn=False,
-            showLastColumn=False, showRowStripes=True, showColumnStripes=False,
-        )
-        sheet.add_table(table)
         sheet.freeze_panes = "A2"
         for index, header in enumerate(EXCEL_HEADERS, 1):
             cell = sheet.cell(1, index)
@@ -323,26 +328,19 @@ class ReparoClient:
                 header_map[_normalize(field)] = column
                 changed = True
 
-        table = sheet.tables.get("REPARO")
-        if table is None:
-            table = next(iter(sheet.tables.values()), None)
         max_row = max(sheet.max_row, 1)
         max_col = max(sheet.max_column, len(FIELDS))
         ref = f"A1:{sheet.cell(max_row, max_col).coordinate}"
-        if table is None:
-            table = Table(displayName="REPARO", ref=ref)
-            table.tableStyleInfo = TableStyleInfo(
-                name="TableStyleMedium4", showFirstColumn=False,
-                showLastColumn=False, showRowStripes=True, showColumnStripes=False,
-            )
-            sheet.add_table(table)
+        if sheet.tables:
+            for table_name in list(sheet.tables):
+                del sheet.tables[table_name]
             changed = True
-        elif table.ref != ref:
-            table.ref = ref
+        filter_ref = ref if max_row > 1 else None
+        if sheet.auto_filter.ref != filter_ref:
+            sheet.auto_filter.ref = filter_ref
             changed = True
-        sheet.auto_filter.ref = table.ref
         sheet.freeze_panes = sheet.freeze_panes or "A2"
-        return table, changed
+        return _SheetRange(ref), changed
 
     @classmethod
     def _column_map(cls, sheet, table):
@@ -646,7 +644,7 @@ class ReparoClient:
             min_col, min_row, max_col, max_row = range_boundaries(table.ref)
             new_max_row = max(min_row, max_row - 1)
             table.ref = f"{sheet.cell(min_row, min_col).coordinate}:{sheet.cell(new_max_row, max_col).coordinate}"
-            sheet.auto_filter.ref = table.ref
+            sheet.auto_filter.ref = table.ref if new_max_row > min_row else None
             self._save_atomic(path, workbook)
         return {"id": item_id, "deleted": True}
 
