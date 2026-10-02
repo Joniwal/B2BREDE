@@ -1,0 +1,13 @@
+<aside class="rb-sidebar" aria-label="Navegação principal">
+  <a class="rb-brand" href="/" aria-label="REDEB2B">REDE<span>B2B</span></a>
+  <div class="rb-nav-label">Navegação</div>
+  <nav class="rb-nav">
+    <a href="/" class="{{ 'active' if active_page == 'inicio' else '' }}"><i class="bi bi-house-door"></i><span>Visão geral</span></a>
+    <a href="/dashboard" class="{{ 'active' if active_page == 'dashboard' else '' }}"><i class="bi bi-grid-1x2"></i><span>Dashboard B2B</span></a>
+    <a href="/ativacao" class="{{ 'active' if active_page == 'ativacao' else '' }}"><i class="bi bi-lightning-charge"></i><span>Ativação</span></a>
+    <a href="/reparo" class="{{ 'active' if active_page == 'reparo' else '' }}"><i class="bi bi-tools"></i><span>Reparo</span></a>
+    <a href="/qualidade" class="{{ 'active' if active_page == 'qualidade' else '' }}"><i class="bi bi-patch-check"></i><span>Ação de Qualidade</span></a>
+    <a href="/backlog" class="{{ 'active' if active_page == 'backlog' else '' }}"><i class="bi bi-inboxes"></i><span>Backlog</span></a>
+  </nav>
+  <div class="rb-sidebar-footer"><span>Base compartilhada</span><strong>{{ source_label|default('REDEB2B') }}</strong></div>
+</aside>

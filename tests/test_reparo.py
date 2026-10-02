@@ -174,6 +174,30 @@ class ReparoClientTests(unittest.TestCase):
             {"motivo": "MASSIVA", "quantidade": 1},
         ])
 
+    def test_dashboard_filters_dates_and_technology_before_aggregating(self):
+        today = date.today()
+        self.client.create(self.payload(
+            ID_VANTIVE="R-GPON-HOJE", DATA_ABERTURA=today.isoformat(),
+            TECNOLOGIA="GPON", LP_15="LP-GPON",
+        ))
+        self.client.create(self.payload(
+            ID_VANTIVE="R-ERB-JANELA", DATA_ABERTURA=(today - timedelta(days=5)).isoformat(),
+            TECNOLOGIA="ERB", LP_15="LP-ERB",
+        ))
+        self.client.create(self.payload(
+            ID_VANTIVE="R-ERB-ANTIGO", DATA_ABERTURA=(today - timedelta(days=45)).isoformat(),
+            TECNOLOGIA="ERB", LP_15="LP-ERB",
+        ))
+
+        dashboard = self.client.dashboard({
+            "tecnologia": "ERB",
+            "de": (today - timedelta(days=15)).isoformat(),
+            "ate": today.isoformat(),
+        })
+        self.assertEqual(dashboard["kpis"]["total"], 1)
+        self.assertEqual(dashboard["serie"]["values"], [1])
+        self.assertEqual(dashboard["tecnologias"]["labels"], ["ERB"])
+
     def test_existing_excel_base_is_prepared_without_losing_rows(self):
         workbook = Workbook()
         sheet = workbook.active
@@ -256,8 +280,12 @@ class ReparoClientTests(unittest.TestCase):
         self.assertIn('aria-label="Excluir registro"', javascript)
         self.assertIn("renderNumberedPagination", javascript)
         self.assertNotIn('id="prevPg"', javascript)
+        self.assertIn('id="dashDe"', javascript)
+        self.assertIn('id="dashAte"', javascript)
+        self.assertIn('id="dashTec"', javascript)
+        self.assertIn("DASHBOARD.serie", javascript)
 
-        for route in ("/", "/dashboard", "/ativacao"):
+        for route in ("/", "/dashboard", "/ativacao", "/qualidade"):
             response = http.get(route)
             self.assertEqual(response.status_code, 200)
             self.assertIn('href="/reparo"', response.get_data(as_text=True))

@@ -62,7 +62,9 @@ echo   2. No .env, deixe EXCEL_PATH e EXCEL_SEARCH_ROOTS vazios para que cada
 echo      usuario procure REDE_B2B.xlsx no proprio OneDrive.
 echo   3. Deixe ATIVACAO_PATH vazio. ATIVACAO.xlsx sera procurado ao lado do
 echo      executavel, na Area de Trabalho, em Documentos e no OneDrive.
-echo   4. De um duplo-clique em REDEB2B.exe; o navegador abre automaticamente.
+echo   4. Deixe BACKLOG_PATH vazio. Backlog.xlsx sera procurado primeiro ao
+echo      lado do REDE_B2B.xlsx e depois nas pastas sincronizadas do OneDrive.
+echo   5. De um duplo-clique em REDEB2B.exe; o navegador abre automaticamente.
 echo      (a primeira abertura pode demorar alguns segundos a mais, e isso
 echo      e normal no modo --onefile)
 echo ==========================================================================

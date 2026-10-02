@@ -16,54 +16,25 @@
 <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 <!-- Estilos próprios -->
 <link href="{{ url_for('static', filename='css/styles.css') }}?v=gradient-cards-1" rel="stylesheet">
+<link href="{{ url_for('static', filename='css/design-system.css') }}?v=clean-1" rel="stylesheet">
 </head>
 <body>
-
-<!-- ============================ TOPO ============================ -->
-<nav class="topbar d-flex align-items-center justify-content-between px-3">
-  <div class="d-flex align-items-center gap-2">
-    <span class="topbar-brand">REDE<span class="text-accent">B2B</span></span>
-    <span class="badge rounded-pill bg-mode ms-2">
-      <i class="bi bi-file-earmark-excel"></i> Fonte: Excel local
-    </span>
+<div class="rb-shell">
+{% set active_page = 'inicio' %}{% set source_label = 'REDE_B2B.xlsx' %}{% include '_sidebar.html' %}
+<div class="rb-workspace">
+<header class="rb-topbar">
+  <div class="rb-title"><h1>Visão geral</h1><p>Painel operacional REDEB2B</p></div>
+  <div class="rb-top-search"><i class="bi bi-search"></i><input type="text" id="quickSearch" placeholder="Busca rápida: cliente, ID ou cidade..."></div>
+  <div class="rb-toolbar">
+    <button class="rb-btn rb-btn-icon" id="btnAtualizar" title="Recarregar dados"><i class="bi bi-arrow-clockwise"></i></button>
+    <button class="rb-btn rb-btn-primary" id="btnNovoRegistro"><i class="bi bi-plus-lg"></i><span class="rb-btn-label">Novo registro</span></button>
+    <button class="rb-btn rb-btn-icon btn-encerrar-app" type="button" title="Encerrar aplicativo"><i class="bi bi-power"></i></button>
   </div>
-
-  <div class="d-flex align-items-center gap-2 flex-grow-1 mx-4" style="max-width:420px;">
-    <div class="input-group">
-      <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
-      <input type="text" id="quickSearch" class="form-control border-start-0" placeholder="Busca rápida (cliente, ID, cidade...)">
-    </div>
-  </div>
-
-  <div class="d-flex align-items-center gap-2">
-    <select id="quickStatusFilter" class="form-select form-select-sm" style="width:auto;">
-      <option value="">Todos os status</option>
-    </select>
-    <a href="/dashboard" class="btn btn-outline-primary btn-sm">
-      <i class="bi bi-bar-chart-line"></i> Dashboard
-    </a>
-    <a href="/ativacao" class="btn btn-outline-primary btn-sm">
-      <i class="bi bi-lightning-charge"></i> Ativação
-    </a>
-    <a href="/reparo" class="btn btn-outline-primary btn-sm">
-      <i class="bi bi-tools"></i> Reparo
-    </a>
-    <button class="btn btn-outline-secondary btn-sm" id="btnAtualizar" title="Recarregar dados">
-      <i class="bi bi-arrow-clockwise"></i> Atualizar
-    </button>
-    <button class="btn btn-outline-danger btn-sm btn-encerrar-app" type="button" title="Encerrar o aplicativo local">
-      <i class="bi bi-power"></i> Encerrar aplicativo
-    </button>
-    <button class="btn btn-accent btn-sm" id="btnNovoRegistro">
-      <i class="bi bi-plus-lg"></i> Novo registro
-    </button>
-  </div>
-</nav>
-
-<div class="layout-wrapper d-flex">
+</header>
+<div class="layout-wrapper d-flex rb-page">
 
   <!-- ======================= PAINEL DE FILTROS ======================= -->
-  <aside class="filters-panel p-3">
+  <aside class="filters-panel rb-card p-3">
     <h6 class="filters-title"><i class="bi bi-funnel"></i> Filtros detalhados</h6>
 
     <div class="mb-2">
@@ -249,6 +220,8 @@
 
   </main>
 </div>
+</div>
+</div>
 
 <div id="alertContainer" class="alert-container"></div>
 
@@ -259,7 +232,7 @@
 <!-- Chart.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <!-- Lógica da aplicação -->
-<script src="{{ url_for('static', filename='js/main.js') }}?v=site-filtro-tecnologia-3"></script>
+<script src="{{ url_for('static', filename='js/main.js') }}?v=qualidade-nav-1"></script>
 <script src="{{ url_for('static', filename='js/app-controls.js') }}?v=encerrar-1"></script>
 </body>
 </html>

@@ -383,8 +383,8 @@ class DataClient:
     def list_items(self, filters=None, page=1, page_size=20, sort=None):
         """Lista itens com filtros, paginação e ordenação.
 
-        filters: dict com chaves opcionais: cliente, id, cidade,
-                 executadopor, status, data_inicio, data_fim, q
+        filters: dict com chaves opcionais: cliente, id, cidade, atividade,
+                 tecnologia, executadopor, status, data_inicio, data_fim, q
         sort: string no formato "campo:asc" ou "campo:desc"
         Retorna: dict {items: [...], total: int, page: int, page_size: int}
         """
@@ -1076,12 +1076,16 @@ class DataClient:
         total_iniciados_nao_concluidos = _total_status_por_data(
             "Iniciado não concluído", "DATAAGENDAMENTO"
         )
+        total_vistorias_concluidas = _total_status_por_data(
+            "Vistoria concluída", "DATACONCLUSAO"
+        )
         totais_status = [
             total_concluidos,
             total_pcc,
             total_cancelados,
             total_agendados,
             total_iniciados_nao_concluidos,
+            total_vistorias_concluidas,
         ]
         resumo_dia_anterior = {
             "data": dia_util_anterior,
@@ -1091,6 +1095,7 @@ class DataClient:
                 "Cancelados",
                 "Agendados",
                 "Iniciados não concluídos",
+                "Vistorias concluídas",
                 "Total",
             ],
             "data_valores": [*totais_status, sum(totais_status)],
@@ -1173,8 +1178,8 @@ class DataClient:
             raise DataClientError(f"Campo de data inválido: {date_field}")
         rows = self._excel_read_all()
         cols = ["IDCLIENTE", "CLIENTE", "ENDERECO", "CIDADE", "TECNOLOGIA", "VT",
-                "DATAAGENDAMENTO", "DATACONCLUSAO", "STATUS", "TIPOCABO",
-                "METRAGEM", "NUMDRAFT", "ROTA"]
+                "DATAAGENDAMENTO", "DATACONCLUSAO", "STATUS", "OBSERVACAO",
+                "NUMDRAFT", "ROTA"]
         result = []
         for row in rows:
             if _parse_date(row.get(date_field)) != date_str:
@@ -1191,6 +1196,7 @@ class DataClient:
         cliente = filters.get("cliente")
         idcliente = filters.get("id")
         cidade = filters.get("cidade")
+        atividade = filters.get("atividade")
         tecnologia = filters.get("tecnologia")
         executadopor = filters.get("executadopor")
         status = filters.get("status")
@@ -1205,6 +1211,10 @@ class DataClient:
             if idcliente and str(idcliente) not in str(row.get("IDCLIENTE", "")):
                 return False
             if cidade and _strip_accents(cidade) not in _strip_accents(row.get("CIDADE")):
+                return False
+            if atividade and _strip_accents(str(atividade).strip()) != _strip_accents(
+                str(row.get("ATIVIDADE") or "").strip()
+            ):
                 return False
             if tecnologia and _strip_accents(str(tecnologia).strip()) != _strip_accents(
                 str(row.get("TECNOLOGIA") or "").strip()

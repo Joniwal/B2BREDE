@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>REDEB2B — Ação de Qualidade</title>
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/icon-32.png') }}">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/styles.css') }}?v=gradient-cards-1" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/qualidade.css') }}?v=qualidade-2" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/design-system.css') }}?v=clean-1" rel="stylesheet">
+</head>
+<body>
+  <div class="rb-shell">
+  {% set active_page = 'qualidade' %}{% set source_label = 'REDE_B2B.xlsx' %}{% include '_sidebar.html' %}
+  <div class="rb-workspace">
+  <header class="rb-topbar"><div class="rb-title"><h1>Ação de Qualidade</h1><p>Cadastro e acompanhamento das ações</p></div><div class="rb-source" id="qualidadeArquivoStatusTop">REDE_B2B.xlsx</div><div class="rb-toolbar"><button class="rb-btn rb-btn-icon" id="btnAtualizarQualidade" type="button" title="Atualizar"><i class="bi bi-arrow-clockwise"></i></button><button class="rb-btn rb-btn-icon" id="btnExportarQualidade" type="button" title="Baixar Excel"><i class="bi bi-download"></i></button><button class="rb-btn rb-btn-primary" id="btnNovaQualidade" type="button"><i class="bi bi-plus-lg"></i><span class="rb-btn-label">Nova ação</span></button><button class="rb-btn rb-btn-icon btn-encerrar-app" type="button" title="Encerrar aplicativo"><i class="bi bi-power"></i></button></div></header>
+
+  <main class="rb-page qualidade-page">
+    <section class="qualidade-filter-card mb-3">
+      <div class="filter-heading">
+        <div><h1><i class="bi bi-funnel"></i> Ações de qualidade</h1><p>Somente registros com atividade “AÇÃO DE QUALIDADE” da base compartilhada.</p></div>
+        <span id="qualidadeArquivoStatus" class="text-muted">Localizando a base...</span>
+      </div>
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-lg-4"><label class="form-label" for="qBusca">Busca</label><input class="form-control form-control-sm" id="qBusca" type="search" placeholder="ID, cliente, cidade ou observação"></div>
+        <div class="col-6 col-md-3 col-lg-2"><label class="form-label" for="qStatus">Status</label><select class="form-select form-select-sm" id="qStatus"><option value="">Todos</option></select></div>
+        <div class="col-6 col-md-3 col-lg-2"><label class="form-label" for="qTecnologia">Tecnologia</label><select class="form-select form-select-sm" id="qTecnologia"><option value="">Todas</option></select></div>
+        <div class="col-6 col-md-3 col-lg-2"><label class="form-label" for="qDataInicio">Agendamento — de</label><input class="form-control form-control-sm" id="qDataInicio" type="date"></div>
+        <div class="col-6 col-md-3 col-lg-2"><label class="form-label" for="qDataFim">Agendamento — até</label><input class="form-control form-control-sm" id="qDataFim" type="date"></div>
+      </div>
+      <div class="d-flex flex-wrap gap-2 mt-3">
+        <button class="btn btn-qualidade btn-sm" id="btnAplicarQualidade" type="button"><i class="bi bi-check2"></i> Aplicar filtros</button>
+        <button class="btn btn-outline-secondary btn-sm" id="btnLimparQualidade" type="button"><i class="bi bi-x-circle"></i> Limpar filtros</button>
+      </div>
+    </section>
+
+    <section class="row g-3 mb-3" aria-label="Resumo das ações de qualidade">
+      <div class="col-6 col-lg-3"><article class="qualidade-kpi kpi-total"><i class="bi bi-collection"></i><div><span>Total</span><strong id="qKpiTotal">0</strong></div></article></div>
+      <div class="col-6 col-lg-3"><article class="qualidade-kpi kpi-ok"><i class="bi bi-check-circle"></i><div><span>Concluídas</span><strong id="qKpiConcluidas">0</strong></div></article></div>
+      <div class="col-6 col-lg-3"><article class="qualidade-kpi kpi-pendente"><i class="bi bi-hourglass-split"></i><div><span>Não concluídas</span><strong id="qKpiNaoConcluidas">0</strong></div></article></div>
+      <div class="col-6 col-lg-3"><article class="qualidade-chart-card"><div><h2>Conclusão das atividades</h2><small>Concluídas x não concluídas</small></div><div class="qualidade-chart"><canvas id="qChartConclusao"></canvas></div></article></div>
+    </section>
+
+    <section class="qualidade-table-card">
+      <div class="table-card-header d-flex align-items-center justify-content-between">
+        <div><h2>Atividades</h2><p>Use os ícones para editar ou excluir o registro.</p></div>
+        <div class="d-flex align-items-center gap-2"><label class="small text-muted mb-0" for="qPageSize">Itens por página</label><select class="form-select form-select-sm" id="qPageSize"><option>10</option><option selected>20</option><option>50</option><option>100</option></select></div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover table-sm align-middle mb-0">
+          <thead><tr><th>ID</th><th>Cliente</th><th>Cidade</th><th>Tecnologia</th><th>Status</th><th>Agendamento</th><th>Conclusão</th><th>Executado por</th><th class="text-end">Ações</th></tr></thead>
+          <tbody id="qTableBody"><tr><td colspan="9" class="text-center text-muted py-4">Carregando...</td></tr></tbody>
+        </table>
+      </div>
+      <div class="table-card-footer d-flex align-items-center justify-content-between"><span id="qPaginationInfo" class="text-muted">—</span><ul class="pagination pagination-sm mb-0" id="qPagination"></ul></div>
+    </section>
+  </main></div></div>
+
+  <div class="modal fade" id="qualidadeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content">
+      <div class="modal-header qualidade-modal-header"><div><h2 class="modal-title" id="qualidadeModalTitle">Ação de qualidade</h2><small>A atividade será gravada automaticamente como AÇÃO DE QUALIDADE.</small></div><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+      <div class="modal-body"><div id="qualidadeModalAlert"></div><form id="qualidadeForm"><input type="hidden" id="qOriginalId"><div class="row g-3">
+        <div class="col-md-3"><label class="form-label" for="qf_IDCLIENTE">ID Cliente *</label><input class="form-control" id="qf_IDCLIENTE" required></div>
+        <div class="col-md-6"><label class="form-label" for="qf_CLIENTE">Cliente *</label><input class="form-control" id="qf_CLIENTE" required></div>
+        <div class="col-md-3"><label class="form-label" for="qf_CIDADE">Cidade</label><input class="form-control" id="qf_CIDADE" list="qCidades"></div>
+        <div class="col-md-8"><label class="form-label" for="qf_ENDERECO">Endereço</label><input class="form-control" id="qf_ENDERECO"></div>
+        <div class="col-md-4"><label class="form-label" for="qf_PRODUTO">Produto</label><input class="form-control" id="qf_PRODUTO"></div>
+        <div class="col-md-3"><label class="form-label" for="qf_TECNOLOGIA">Tecnologia</label><select class="form-select" id="qf_TECNOLOGIA"></select></div>
+        <div class="col-md-3"><label class="form-label" for="qf_STATUS">Status</label><select class="form-select" id="qf_STATUS"></select></div>
+        <div class="col-md-3"><label class="form-label" for="qf_EXECUTADOPOR">Executado por</label><select class="form-select" id="qf_EXECUTADOPOR"></select></div>
+        <div class="col-md-3"><label class="form-label" for="qf_VT">VT</label><input class="form-control" id="qf_VT"></div>
+        <div class="col-md-3"><label class="form-label" for="qf_DATADISPARO">Data disparo</label><input class="form-control" id="qf_DATADISPARO" type="date"></div>
+        <div class="col-md-3"><label class="form-label" for="qf_DATAAGENDAMENTO">Data agendamento</label><input class="form-control" id="qf_DATAAGENDAMENTO" type="date"></div>
+        <div class="col-md-3"><label class="form-label" for="qf_DATACONCLUSAO">Data conclusão</label><input class="form-control" id="qf_DATACONCLUSAO" type="date"></div>
+        <div class="col-md-3"><label class="form-label" for="qf_NUMDRAFT">Nº Draft</label><input class="form-control" id="qf_NUMDRAFT"></div>
+        <div class="col-md-3"><label class="form-label" for="qf_ROTA">Rota</label><input class="form-control" id="qf_ROTA"></div>
+        <div class="col-md-3"><label class="form-label" for="qf_USUARIO">Usuário *</label><select class="form-select" id="qf_USUARIO" required></select></div>
+        <div class="col-md-6"><label class="form-label" for="qf_OBSERVACAO">Observação</label><textarea class="form-control" id="qf_OBSERVACAO" rows="3"></textarea></div>
+        <div class="col-md-6"><label class="form-label" for="qf_OBSERVACAOCONCLUSAO">Observação da conclusão</label><textarea class="form-control" id="qf_OBSERVACAOCONCLUSAO" rows="3"></textarea></div>
+      </div></form><datalist id="qCidades"></datalist></div>
+      <div class="modal-footer d-flex justify-content-between"><button class="btn btn-outline-danger d-none" id="btnExcluirQualidade" type="button"><i class="bi bi-trash"></i> Excluir</button><div class="ms-auto d-flex gap-2"><button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-qualidade" id="btnSalvarQualidade" type="button"><i class="bi bi-check-lg"></i> Salvar</button></div></div>
+    </div></div>
+  </div>
+
+  <div id="qualidadeAlertContainer" class="alert-container" aria-live="polite"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+  <script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}?v=4.4.1"></script>
+  <script src="{{ url_for('static', filename='js/chart-value-labels.js') }}?v=1"></script>
+  <script src="{{ url_for('static', filename='js/qualidade.js') }}?v=qualidade-3"></script>
+  <script src="{{ url_for('static', filename='js/app-controls.js') }}?v=encerrar-1"></script>
+</body>
+</html>

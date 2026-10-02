@@ -222,7 +222,7 @@ function populateStatusSelects() {
   const filterSelect = document.getElementById("fStatus");
   const formSelect = document.getElementById("f_STATUS");
   STATUS_OPTIONS.forEach((status) => {
-    quick.appendChild(new Option(status, status));
+    if (quick) quick.appendChild(new Option(status, status));
     filterSelect.appendChild(new Option(status, status));
     formSelect.appendChild(new Option(status, status));
   });
@@ -272,6 +272,7 @@ function updateSiteLiberadoVisibility({ resetWhenHidden = true } = {}) {
  * existir), adiciona uma opção extra marcada para não perder a informação. */
 function setSelectValueWithFallback(selectId, value) {
   const select = document.getElementById(selectId);
+  if (!select) return;
   if (!value) {
     select.value = "";
     return;
@@ -298,7 +299,8 @@ function limparTodosFiltros() {
     if (field) field.value = "";
   });
   document.getElementById("quickSearch").value = "";
-  document.getElementById("quickStatusFilter").value = "";
+  const quickStatus = document.getElementById("quickStatusFilter");
+  if (quickStatus) quickStatus.value = "";
   state.filters = {};
   state.page = 1;
   atualizarEstadoCardEmCampo();
@@ -355,7 +357,7 @@ function bindEvents() {
   document.getElementById("btnLimparFiltros").addEventListener("click", limparTodosFiltros);
   document.getElementById("btnLimparFiltrosTabela")?.addEventListener("click", limparTodosFiltros);
 
-  document.getElementById("quickStatusFilter").addEventListener("change", (e) => {
+  document.getElementById("quickStatusFilter")?.addEventListener("change", (e) => {
     document.getElementById("fStatus").value = e.target.value;
     collectFilters();
     state.page = 1;
@@ -863,6 +865,7 @@ function renderResumoDiaAnterior(canvasId, dataset) {
     "#d9483a", // Cancelados
     "#3b82f6", // Agendados
     "#f0913e", // Iniciados não concluídos
+    "#14b8a6", // Vistorias concluídas
     "#8b96a5", // Total
   ];
   state.charts[canvasId] = new Chart(ctx, {

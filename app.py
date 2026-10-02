@@ -91,6 +91,14 @@ def create_app():
     def reparo():
         return render_template("reparo.html")
 
+    @app.route("/qualidade")
+    def qualidade():
+        return render_template("qualidade.html")
+
+    @app.route("/backlog")
+    def backlog():
+        return render_template("backlog.html")
+
     @app.post("/api/shutdown")
     def shutdown():
         # Impede que outro computador da rede encerre a aplicação. O botão

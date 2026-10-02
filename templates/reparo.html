@@ -7,21 +7,16 @@
   <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
   <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/icon-32.png') }}">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-  <link href="{{ url_for('static', filename='css/reparo.css') }}?v=reparo-listagem-1" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/reparo.css') }}?v=reparo-dashboard-filtros-1" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/design-system.css') }}?v=clean-1" rel="stylesheet">
 </head>
 <body>
-  <header class="reparo-topbar">
-    <div class="reparo-brand">REDE<span>B2B</span> <small><i class="bi bi-tools"></i> Reparo</small></div>
-    <div class="reparo-top-actions">
-      <span id="reparoArquivoStatus" class="file-status">Localizando REPARO.xlsx...</span>
-      <a href="/" class="btn"><i class="bi bi-house"></i> Painel principal</a>
-      <a href="/dashboard" class="btn"><i class="bi bi-bar-chart-line"></i> Dashboard B2B</a>
-      <a href="/ativacao" class="btn"><i class="bi bi-lightning-charge"></i> Ativação</a>
-      <button class="btn btn-danger btn-encerrar-app" type="button"><i class="bi bi-power"></i> Encerrar</button>
-    </div>
-  </header>
+  <div class="rb-shell">
+  {% set active_page = 'reparo' %}{% set source_label = 'REPARO.xlsx' %}{% include '_sidebar.html' %}
+  <div class="rb-workspace">
+  <header class="rb-topbar"><div class="rb-title"><h1>Reparo</h1><p>Gestão de BDs e reincidências</p></div><div class="rb-source" id="reparoArquivoStatus">Localizando REPARO.xlsx...</div><div class="rb-toolbar"><button class="rb-btn rb-btn-icon btn-encerrar-app" type="button" title="Encerrar aplicativo"><i class="bi bi-power"></i></button></div></header>
 
-  <div class="reparo-app app">
+  <div class="reparo-app app rb-page">
     <nav class="reparo-side side">
       <div class="side-title">Gestão de BD<small>Base compartilhada Excel</small></div>
       <button class="nav-btn active" data-view="dashboard"><i class="bi bi-speedometer2"></i> Dashboard</button>
@@ -30,7 +25,7 @@
     <main class="reparo-main main" id="main">
       <div class="loading">Carregando dados de REPARO.xlsx...</div>
     </main>
-  </div>
+  </div></div></div>
 
   <div class="overlay" id="overlay" aria-hidden="true">
     <div class="reparo-modal modal" id="modalBody" role="dialog" aria-modal="true"></div>
@@ -38,7 +33,7 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}?v=4.4.1"></script>
-  <script src="{{ url_for('static', filename='js/reparo.js') }}?v=reparo-listagem-1"></script>
+  <script src="{{ url_for('static', filename='js/reparo.js') }}?v=reparo-dashboard-filtros-1"></script>
   <script src="{{ url_for('static', filename='js/app-controls.js') }}?v=encerrar-1"></script>
 </body>
 </html>

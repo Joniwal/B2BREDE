@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>REDEB2B — Backlog</title>
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/design-system.css') }}?v=clean-1" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/backlog.css') }}?v=backlog-1" rel="stylesheet">
+</head>
+<body>
+<div class="rb-shell">
+  {% set active_page = 'backlog' %}{% set source_label = 'Backlog.xlsx' %}{% include '_sidebar.html' %}
+  <div class="rb-workspace">
+    <header class="rb-topbar">
+      <div class="rb-title"><h1>Backlog</h1><p>Visão consolidada da carteira compartilhada</p></div>
+      <div class="rb-source" id="backlogFileStatus">Localizando Backlog.xlsx...</div>
+      <div class="rb-toolbar">
+        <button class="rb-btn rb-btn-icon" id="btnBacklogRefresh" type="button" title="Atualizar dados"><i class="bi bi-arrow-clockwise"></i></button>
+        <button class="rb-btn rb-btn-icon" id="btnBacklogExport" type="button" title="Baixar Excel filtrado"><i class="bi bi-download"></i></button>
+        <button class="rb-btn rb-btn-icon btn-encerrar-app" type="button" title="Encerrar aplicativo"><i class="bi bi-power"></i></button>
+      </div>
+    </header>
+
+    <main class="rb-page backlog-page">
+      <section class="rb-card rb-filter-card backlog-filters mb-3">
+        <div class="rb-section-head"><div><h2><i class="bi bi-funnel"></i> Filtros</h2><p>Use os campos abaixo para refinar os indicadores e a listagem.</p></div><button class="backlog-collapse" id="btnBacklogCollapse" type="button" aria-expanded="true" title="Recolher filtros"><i class="bi bi-chevron-up"></i></button></div>
+        <div class="backlog-filter-body" id="backlogFilterBody">
+          <div class="backlog-field wide"><label for="blQ">Busca</label><input id="blQ" type="search" placeholder="Pedido, ID, cliente ou cidade..."></div>
+          <div class="backlog-field"><label for="blCarteira">Carteira</label><select id="blCarteira"><option value="">Todas</option></select></div>
+          <div class="backlog-field small"><label for="blUf">UF</label><select id="blUf"><option value="">Todas</option></select></div>
+          <div class="backlog-field"><label for="blTecnologia">Tecnologia</label><select id="blTecnologia"><option value="">Todas</option></select></div>
+          <div class="backlog-field"><label for="blDataInicio">Entrada — de</label><input id="blDataInicio" type="date"></div>
+          <div class="backlog-field"><label for="blDataFim">Entrada — até</label><input id="blDataFim" type="date"></div>
+          <button class="rb-btn rb-btn-primary" id="btnBacklogApply" type="button">Aplicar</button>
+          <button class="rb-btn" id="btnBacklogClear" type="button">Limpar</button>
+        </div>
+      </section>
+
+      <section class="backlog-kpis mb-3" aria-label="Indicadores do backlog">
+        <article class="rb-kpi" style="--rb-tone:#246bfd"><div class="rb-kpi-icon"><i class="bi bi-inboxes"></i></div><div><span class="rb-kpi-label">Total no backlog</span><strong class="rb-kpi-value" id="blKpiTotal">0</strong></div></article>
+        <article class="rb-kpi" style="--rb-tone:#1ba878"><div class="rb-kpi-icon"><i class="bi bi-file-earmark-check"></i></div><div><span class="rb-kpi-label">Com RFS</span><strong class="rb-kpi-value" id="blKpiRfs">0</strong></div></article>
+        <article class="rb-kpi" style="--rb-tone:#805ad5"><div class="rb-kpi-icon"><i class="bi bi-percent"></i></div><div><span class="rb-kpi-label">Índice RFS</span><strong class="rb-kpi-value" id="blKpiIndice">0%</strong></div></article>
+        <article class="rb-kpi" style="--rb-tone:#e69032"><div class="rb-kpi-icon"><i class="bi bi-hourglass-split"></i></div><div><span class="rb-kpi-label">Aging médio</span><strong class="rb-kpi-value" id="blKpiAging">0 dias</strong></div></article>
+      </section>
+
+      <section class="backlog-overview mb-3">
+        <article class="rb-card backlog-wallet-card">
+          <div class="backlog-card-head"><div><h2>Resumo por carteira</h2><small>A situação considera o aging médio: até 15, até 30 e acima de 30 dias.</small></div><span id="blCarteiraTotal" class="rb-pill">0 carteiras</span></div>
+          <div class="rb-table-wrap"><table class="rb-table backlog-wallet-table"><thead><tr><th>Carteira</th><th>Quantidade</th><th>Situação</th><th>Aging médio</th></tr></thead><tbody id="blCarteiraBody"><tr><td colspan="4" class="text-center text-muted py-4">Carregando...</td></tr></tbody></table></div>
+        </article>
+        <article class="rb-card backlog-chart-card">
+          <div class="backlog-card-head"><div><h2>RFS por dia</h2><small>Últimos 30 dias com movimentação no período filtrado</small></div><span id="blLastUpdate" class="rb-pill">—</span></div>
+          <div class="backlog-chart"><canvas id="blRfsChart"></canvas></div>
+        </article>
+      </section>
+
+      <section class="rb-card backlog-table-card">
+        <div class="rb-table-head"><div><h2>Itens do backlog</h2><p>Consulta da base compartilhada, sem alteração do arquivo.</p></div><div class="backlog-table-tools"><label for="blPageSize">Itens por página</label><select id="blPageSize"><option>10</option><option selected>20</option><option>50</option><option>100</option></select></div></div>
+        <div class="rb-table-wrap"><table class="rb-table backlog-table"><thead><tr><th>Pedido</th><th>ID Cliente</th><th>Cliente</th><th>UF</th><th>Cidade</th><th>Carteira</th><th>Serviço</th><th>Tecnologia</th><th>Dias</th><th>Entrada</th><th>RFS</th></tr></thead><tbody id="blTableBody"><tr><td colspan="11" class="text-center text-muted py-4">Carregando...</td></tr></tbody></table></div>
+        <div class="rb-table-footer"><span id="blPaginationInfo">—</span><div class="backlog-pagination" id="blPagination"></div></div>
+      </section>
+    </main>
+  </div>
+</div>
+<div id="backlogAlert" class="rb-alert-container" aria-live="polite"></div>
+<script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}?v=4.4.1"></script>
+<script src="{{ url_for('static', filename='js/chart-value-labels.js') }}?v=1"></script>
+<script src="{{ url_for('static', filename='js/backlog.js') }}?v=backlog-1"></script>
+<script src="{{ url_for('static', filename='js/app-controls.js') }}?v=encerrar-1"></script>
+</body></html>

@@ -10,6 +10,7 @@ padrão:
 
 import io
 import logging
+import unicodedata
 from datetime import datetime
 
 import pandas as pd
@@ -18,6 +19,7 @@ from flask import Blueprint, request, jsonify, send_file
 from excel_client import DataClient, DataClientError, FIELDS
 from ativacao_client import AtivacaoClient, EXCEL_HEADERS as ATIVACAO_HEADERS, FIELDS as ATIVACAO_FIELDS
 from reparo_client import ReparoClient, EXCEL_HEADERS as REPARO_HEADERS, FIELDS as REPARO_FIELDS
+from backlog_client import BacklogClient
 
 logger = logging.getLogger("redeb2b.api")
 api_bp = Blueprint("api", __name__, url_prefix="/api")
@@ -25,6 +27,9 @@ api_bp = Blueprint("api", __name__, url_prefix="/api")
 data_client = DataClient()
 ativacao_client = AtivacaoClient()
 reparo_client = ReparoClient()
+backlog_client = BacklogClient()
+
+QUALIDADE_ATIVIDADE = "AÇÃO DE QUALIDADE"
 
 
 def _error_response(exc: DataClientError):
@@ -36,6 +41,7 @@ def _parse_pagination_and_filters():
         "cliente": request.args.get("cliente"),
         "id": request.args.get("id"),
         "cidade": request.args.get("cidade"),
+        "atividade": request.args.get("atividade"),
         "tecnologia": request.args.get("tecnologia"),
         "executadopor": request.args.get("executadopor"),
         "status": request.args.get("status"),
@@ -49,6 +55,36 @@ def _parse_pagination_and_filters():
     page_size = int(request.args.get("page_size", 20))
     sort = request.args.get("sort")
     return filters, page, page_size, sort
+
+
+def _normalize_text(value):
+    text = str(value or "").strip().casefold()
+    return "".join(
+        char for char in unicodedata.normalize("NFKD", text)
+        if not unicodedata.combining(char)
+    )
+
+
+def _parse_qualidade_filters():
+    filters = {
+        "atividade": QUALIDADE_ATIVIDADE,
+        "status": request.args.get("status"),
+        "tecnologia": request.args.get("tecnologia"),
+        "data_inicio": request.args.get("dataInicio"),
+        "data_fim": request.args.get("dataFim"),
+        "q": request.args.get("q"),
+    }
+    return {key: value for key, value in filters.items() if value}
+
+
+def _qualidade_item(item_id):
+    item = data_client.get_item(item_id)
+    if _normalize_text(item.get("ATIVIDADE")) != _normalize_text(QUALIDADE_ATIVIDADE):
+        raise DataClientError(
+            f"Registro com IDCLIENTE={item_id} não pertence à Ação de Qualidade.",
+            status_code=404,
+        )
+    return item
 
 
 def _parse_ativacao_filters():
@@ -76,6 +112,19 @@ def _parse_reparo_filters():
         "busca": request.args.get("busca"),
         "de": request.args.get("de"),
         "ate": request.args.get("ate"),
+    }
+    return {key: value for key, value in filters.items() if value}
+
+
+def _parse_backlog_filters():
+    filters = {
+        "q": request.args.get("q"),
+        "carteira": request.args.get("carteira"),
+        "uf": request.args.get("uf"),
+        "cidade": request.args.get("cidade"),
+        "tecnologia": request.args.get("tecnologia"),
+        "data_inicio": request.args.get("dataInicio"),
+        "data_fim": request.args.get("dataFim"),
     }
     return {key: value for key, value in filters.items() if value}
 
@@ -311,6 +360,125 @@ def export_items():
     except Exception:  # noqa: BLE001
         logger.exception("Erro inesperado em GET /api/export")
         return jsonify({"ok": False, "error": "Erro interno ao gerar a exportação para Excel."}), 500
+
+
+# ---------------------------------------------------------------------------
+# AÇÃO DE QUALIDADE — recorte da base REDE_B2B.xlsx
+# ---------------------------------------------------------------------------
+
+@api_bp.route("/qualidade/records", methods=["GET"])
+def qualidade_records():
+    try:
+        result = data_client.list_items(
+            filters=_parse_qualidade_filters(),
+            page=max(1, int(request.args.get("page", 1))),
+            page_size=max(1, min(5000, int(request.args.get("page_size", 20)))),
+            sort=request.args.get("sort", "DATAAGENDAMENTO:desc"),
+        )
+        return jsonify({"ok": True, "data": result})
+    except DataClientError as exc:
+        return _error_response(exc)
+    except ValueError:
+        return jsonify({"ok": False, "error": "Paginação inválida."}), 400
+    except Exception:  # noqa: BLE001
+        logger.exception("Erro inesperado em GET /api/qualidade/records")
+        return jsonify({"ok": False, "error": "Erro interno ao listar ações de qualidade."}), 500
+
+
+@api_bp.route("/qualidade/records/<path:item_id>", methods=["GET"])
+def qualidade_get_record(item_id):
+    try:
+        return jsonify({"ok": True, "data": _qualidade_item(item_id)})
+    except DataClientError as exc:
+        return _error_response(exc)
+
+
+@api_bp.route("/qualidade/records", methods=["POST"])
+def qualidade_create_record():
+    try:
+        payload = request.get_json(force=True, silent=True) or {}
+        payload["ATIVIDADE"] = QUALIDADE_ATIVIDADE
+        return jsonify({"ok": True, "data": data_client.create_item(payload)}), 201
+    except DataClientError as exc:
+        return _error_response(exc)
+    except Exception:  # noqa: BLE001
+        logger.exception("Erro inesperado em POST /api/qualidade/records")
+        return jsonify({"ok": False, "error": "Erro interno ao criar a ação de qualidade."}), 500
+
+
+@api_bp.route("/qualidade/records/<path:item_id>", methods=["PATCH"])
+def qualidade_update_record(item_id):
+    try:
+        _qualidade_item(item_id)
+        payload = request.get_json(force=True, silent=True) or {}
+        payload["ATIVIDADE"] = QUALIDADE_ATIVIDADE
+        return jsonify({"ok": True, "data": data_client.update_item(item_id, payload)})
+    except DataClientError as exc:
+        return _error_response(exc)
+    except Exception:  # noqa: BLE001
+        logger.exception("Erro inesperado em PATCH /api/qualidade/records/%s", item_id)
+        return jsonify({"ok": False, "error": "Erro interno ao atualizar a ação de qualidade."}), 500
+
+
+@api_bp.route("/qualidade/records/<path:item_id>", methods=["DELETE"])
+def qualidade_delete_record(item_id):
+    try:
+        _qualidade_item(item_id)
+        return jsonify({"ok": True, "data": data_client.delete_item(item_id)})
+    except DataClientError as exc:
+        return _error_response(exc)
+    except Exception:  # noqa: BLE001
+        logger.exception("Erro inesperado em DELETE /api/qualidade/records/%s", item_id)
+        return jsonify({"ok": False, "error": "Erro interno ao excluir a ação de qualidade."}), 500
+
+
+@api_bp.route("/qualidade/dashboard", methods=["GET"])
+def qualidade_dashboard():
+    try:
+        rows = data_client.export_items(filters=_parse_qualidade_filters())
+        concluidas = sum(
+            _normalize_text(item.get("STATUS")) == "concluido"
+            for item in rows
+        )
+        return jsonify({
+            "ok": True,
+            "data": {
+                "total": len(rows),
+                "concluidas": concluidas,
+                "nao_concluidas": len(rows) - concluidas,
+                "grafico": {
+                    "labels": ["Concluídas", "Não concluídas"],
+                    "values": [concluidas, len(rows) - concluidas],
+                },
+            },
+        })
+    except DataClientError as exc:
+        return _error_response(exc)
+    except Exception:  # noqa: BLE001
+        logger.exception("Erro inesperado em GET /api/qualidade/dashboard")
+        return jsonify({"ok": False, "error": "Erro interno ao gerar o painel de qualidade."}), 500
+
+
+@api_bp.route("/qualidade/export", methods=["GET"])
+def qualidade_export():
+    try:
+        rows = data_client.export_items(filters=_parse_qualidade_filters())
+        frame = pd.DataFrame(rows, columns=FIELDS)
+        buffer = io.BytesIO()
+        frame.to_excel(buffer, index=False, sheet_name="ACAO_QUALIDADE")
+        buffer.seek(0)
+        filename = f"ACAO_QUALIDADE_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=filename,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+    except DataClientError as exc:
+        return _error_response(exc)
+    except Exception:  # noqa: BLE001
+        logger.exception("Erro inesperado em GET /api/qualidade/export")
+        return jsonify({"ok": False, "error": "Erro interno ao exportar as ações de qualidade."}), 500
 
 
 # ---------------------------------------------------------------------------
@@ -554,3 +722,66 @@ def reparo_export():
     except Exception:  # noqa: BLE001
         logger.exception("Erro inesperado em GET /api/reparo/export")
         return jsonify({"ok": False, "error": "Erro interno ao exportar os reparos."}), 500
+
+
+# ---------------------------------------------------------------------------
+# BACKLOG — consulta somente leitura do Backlog.xlsx compartilhado
+# ---------------------------------------------------------------------------
+
+@api_bp.route("/backlog/status", methods=["GET"])
+def backlog_status():
+    try:
+        return jsonify({"ok": True, "data": backlog_client.status()})
+    except DataClientError as exc:
+        return _error_response(exc)
+
+
+@api_bp.route("/backlog/options", methods=["GET"])
+def backlog_options():
+    try:
+        return jsonify({"ok": True, "data": backlog_client.options()})
+    except DataClientError as exc:
+        return _error_response(exc)
+
+
+@api_bp.route("/backlog/records", methods=["GET"])
+def backlog_records():
+    try:
+        result = backlog_client.list_rows(
+            filters=_parse_backlog_filters(),
+            page=request.args.get("page", 1),
+            page_size=request.args.get("page_size", 20),
+        )
+        return jsonify({"ok": True, "data": result})
+    except DataClientError as exc:
+        return _error_response(exc)
+
+
+@api_bp.route("/backlog/dashboard", methods=["GET"])
+def backlog_dashboard():
+    try:
+        return jsonify({"ok": True, "data": backlog_client.dashboard(_parse_backlog_filters())})
+    except DataClientError as exc:
+        return _error_response(exc)
+
+
+@api_bp.route("/backlog/export", methods=["GET"])
+def backlog_export():
+    try:
+        headers, rows = backlog_client.export_rows(_parse_backlog_filters())
+        frame = pd.DataFrame(rows, columns=headers)
+        buffer = io.BytesIO()
+        frame.to_excel(buffer, index=False, sheet_name="Backlog")
+        buffer.seek(0)
+        filename = f"Backlog_export_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=filename,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+    except DataClientError as exc:
+        return _error_response(exc)
+    except Exception:  # noqa: BLE001
+        logger.exception("Erro inesperado em GET /api/backlog/export")
+        return jsonify({"ok": False, "error": "Erro interno ao exportar o backlog."}), 500

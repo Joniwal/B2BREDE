@@ -96,6 +96,11 @@ class BusinessDayTests(unittest.TestCase):
                 "STATUS": "INICIADO NAO CONCLUIDO",
                 "DATAAGENDAMENTO": "2026-08-28 09:00:00",
             },
+            {
+                "STATUS": "VISTORIA CONCLUIDA",
+                "DATACONCLUSAO": "28/08/2026",
+                "DATAAGENDAMENTO": "2026-08-20",
+            },
             # Não conta: conclusão ocorreu em outra data, mesmo que a data de
             # agendamento seja o dia útil anterior.
             {
@@ -123,10 +128,11 @@ class BusinessDayTests(unittest.TestCase):
                 "Cancelados",
                 "Agendados",
                 "Iniciados não concluídos",
+                "Vistorias concluídas",
                 "Total",
             ],
         )
-        self.assertEqual(summary["data_valores"], [1, 1, 1, 1, 1, 5])
+        self.assertEqual(summary["data_valores"], [1, 1, 1, 1, 1, 1, 6])
 
 
 if __name__ == "__main__":

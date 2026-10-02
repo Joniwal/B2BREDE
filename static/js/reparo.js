@@ -14,6 +14,7 @@ let DASHBOARD = {};
 let FORM_OPTIONS = {};
 let view = "dashboard";
 let filters = {status:"",uf:"",eps:"",tecnologia:"",busca:"",de:"",ate:""};
+let dashboardFilters = {tecnologia:"",de:"",ate:""};
 let sortCol = "DATA_ABERTURA", sortDir = "desc";
 let page = 1, pageSize = 25;
 
@@ -26,7 +27,7 @@ async function api(url, options={}){
 async function load(){
   const [result,dashboard] = await Promise.all([
     api("/api/reparo/records?page=1&page_size=5000&sort=DATA_ABERTURA:desc"),
-    api("/api/reparo/dashboard"),
+    api("/api/reparo/dashboard?"+serverQuery(dashboardFilters)),
   ]);
   DATA = (result.items || []).map(item=>({...item, _id:String(item.row_number)}));
   DASHBOARD = dashboard || {};
@@ -45,10 +46,13 @@ async function loadFileStatus(){
     element.title=error.message;
   }
 }
-function serverQuery(){
+function serverQuery(source=filters){
   const params=new URLSearchParams();
-  Object.entries(filters).forEach(([key,value])=>{ if(value) params.set(key,value); });
+  Object.entries(source).forEach(([key,value])=>{ if(value) params.set(key,value); });
   return params.toString();
+}
+async function loadDashboardData(){
+  DASHBOARD=await api("/api/reparo/dashboard?"+serverQuery(dashboardFilters));
 }
 function mk(o){ const r={}; COLS.forEach(c=>r[c]=o[c]??""); r._id = crypto.randomUUID(); return r; }
 function esc(value){
@@ -139,13 +143,12 @@ function render(){
 }
 
 function renderDashboard(){
-  const total=DATA.length;
-  const abertos=DATA.filter(r=>normStatus(r.STATUS)!=="Encerrado").length;
-  const encerrados=total-abertos;
-  const tmrs=DATA.map(r=>parseFloat(r.TMR)).filter(v=>!isNaN(v));
-  const tmrMed = tmrs.length? (tmrs.reduce((a,b)=>a+b,0)/tmrs.length):0;
-  const reinc = DATA.filter(r=>(r.REINC_30D||"").toString().toLowerCase().startsWith("s")).length;
-  const taxaReinc = total? (reinc/total*100):0;
+  const kpis=DASHBOARD.kpis||{};
+  const total=kpis.total||0;
+  const abertos=kpis.abertos||0;
+  const encerrados=kpis.encerrados||0;
+  const tmrMed=kpis.tmr_medio||0;
+  const taxaReinc=kpis.taxa_reincidencia||0;
   const repeated=DASHBOARD.reincidencias_lp_30d||{};
   const repeatedRows=repeated.itens||[];
   const repeatedPeriod=repeated.data_inicio&&repeated.data_fim
@@ -154,6 +157,13 @@ function renderDashboard(){
   return `
   <div class="topline"><div><h1>Dashboard</h1><p>Visão geral dos registros de BD</p></div>
     <div class="actions"><button class="btn" id="exportAll"><i class="bi bi-file-earmark-excel"></i> Baixar Excel</button><button class="btn" id="refreshData"><i class="bi bi-arrow-clockwise"></i> Atualizar dados</button></div></div>
+  <div class="dashboard-filters">
+    <div><label for="dashDe">Data de abertura — de</label><input type="date" id="dashDe" value="${dashboardFilters.de}"></div>
+    <div><label for="dashAte">Data de abertura — até</label><input type="date" id="dashAte" value="${dashboardFilters.ate}"></div>
+    <div><label for="dashTec">Tecnologia</label><select id="dashTec"><option value="">Todas</option>${uniq("TECNOLOGIA").map(value=>`<option value="${esc(value)}" ${dashboardFilters.tecnologia===value?"selected":""}>${esc(value)}</option>`).join("")}</select></div>
+    <button class="btn primary" id="applyDashboardFilters"><i class="bi bi-funnel"></i> Aplicar filtros</button>
+    <button class="btn" id="clearDashboardFilters"><i class="bi bi-x-circle"></i> Limpar</button>
+  </div>
   <div class="kpis">
     <div class="kpi reparo-kpi-total"><i class="bi bi-collection"></i><div><div class="l">Total de BDs</div><div class="v">${total}</div></div></div>
     <div class="kpi reparo-kpi-open"><i class="bi bi-hourglass-split"></i><div><div class="l">Em aberto / andamento</div><div class="v">${abertos}</div></div></div>
@@ -191,32 +201,27 @@ function drawCharts(){
   Chart.defaults.scale.grid.lineWidth = 1;
   Chart.defaults.scale.border.color = "#CBD5E1";
   Chart.defaults.scale.ticks.color = "#64748B";
-  const byMonth = {};
-  DATA.forEach(r=>{ if(r.DATA_ABERTURA){ const k=r.DATA_ABERTURA.slice(0,7); byMonth[k]=(byMonth[k]||0)+1; } });
-  const months = Object.keys(byMonth).sort();
+  const serie=DASHBOARD.serie||{labels:[],values:[]};
+  const months=serie.labels||[];
   new Chart(document.getElementById("chSerie"),{type:"line",data:{labels:months,
-    datasets:[{data:months.map(m=>byMonth[m]),borderColor:"#45B8AC",backgroundColor:"rgba(69,184,174,.15)",fill:true,tension:.3}]},
+    datasets:[{data:serie.values||[],borderColor:"#45B8AC",backgroundColor:"rgba(69,184,174,.15)",fill:true,tension:.3}]},
     options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{beginAtZero:true}}}});
 
-  const statusCount={};
-  DATA.forEach(r=>{ const s=normStatus(r.STATUS)||"—"; statusCount[s]=(statusCount[s]||0)+1; });
+  const statusData=DASHBOARD.status||{labels:[],values:[]};
   new Chart(document.getElementById("chStatus"),{type:"doughnut",
-    data:{labels:Object.keys(statusCount),datasets:[{data:Object.values(statusCount),
+    data:{labels:statusData.labels||[],datasets:[{data:statusData.values||[],
     backgroundColor:["#E8A33D","#45B8AC","#4C9F6B","#DB5A4C"]}]},
     options:{maintainAspectRatio:false,plugins:{legend:{position:"bottom",labels:{boxWidth:10,padding:12}}}}});
 
-  const motivo={};
-  DATA.forEach(r=>{ if(r.MOTIVO_REAL_BD){ motivo[r.MOTIVO_REAL_BD]=(motivo[r.MOTIVO_REAL_BD]||0)+1; } });
-  const topMotivo = Object.entries(motivo).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const motivos=DASHBOARD.motivos||{labels:[],values:[]};
   new Chart(document.getElementById("chMotivo"),{type:"bar",
-    data:{labels:topMotivo.map(x=>x[0]),datasets:[{data:topMotivo.map(x=>x[1]),backgroundColor:"#45B8AC"}]},
+    data:{labels:motivos.labels||[],datasets:[{data:motivos.values||[],backgroundColor:"#45B8AC"}]},
     options:{maintainAspectRatio:false,indexAxis:"y",plugins:{legend:{display:false}},scales:{x:{beginAtZero:true},y:{grid:{display:false}}}}});
 
-  const tecTmr={};
-  DATA.forEach(r=>{ const v=parseFloat(r.TMR); if(r.TECNOLOGIA && !isNaN(v)){ if(!tecTmr[r.TECNOLOGIA]) tecTmr[r.TECNOLOGIA]=[]; tecTmr[r.TECNOLOGIA].push(v); } });
-  const tecLabels = Object.keys(tecTmr);
+  const technologies=DASHBOARD.tecnologias||{labels:[],values:[]};
+  const tecLabels=technologies.labels||[];
   new Chart(document.getElementById("chTec"),{type:"bar",
-    data:{labels:tecLabels,datasets:[{data:tecLabels.map(t=>tecTmr[t].reduce((a,b)=>a+b,0)/tecTmr[t].length),backgroundColor:"#E8A33D"}]},
+    data:{labels:tecLabels,datasets:[{data:technologies.values||[],backgroundColor:"#E8A33D"}]},
     options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{beginAtZero:true}}}});
 }
 
@@ -321,7 +326,19 @@ function wire(){
   document.getElementById("overlay").onclick=(e)=>{ if(e.target.id==="overlay") closeModal(); };
 
   if(view==="dashboard"){
-    document.getElementById("exportAll").onclick=()=>{ window.location.href="/api/reparo/export"; };
+    document.getElementById("exportAll").onclick=()=>{ window.location.href="/api/reparo/export?"+serverQuery(dashboardFilters); };
+    document.getElementById("applyDashboardFilters").onclick=async()=>{
+      dashboardFilters={
+        de:document.getElementById("dashDe").value,
+        ate:document.getElementById("dashAte").value,
+        tecnologia:document.getElementById("dashTec").value,
+      };
+      try{await loadDashboardData();render();}catch(error){alert(error.message);}
+    };
+    document.getElementById("clearDashboardFilters").onclick=async()=>{
+      dashboardFilters={tecnologia:"",de:"",ate:""};
+      try{await loadDashboardData();render();}catch(error){alert(error.message);}
+    };
   }
   if(view==="listagem"){
     document.getElementById("fBusca").oninput=e=>{ filters.busca=e.target.value; page=1; render(); };

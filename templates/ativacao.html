@@ -10,24 +10,15 @@
   <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <link href="{{ url_for('static', filename='css/styles.css') }}?v=gradient-cards-1" rel="stylesheet">
   <link href="{{ url_for('static', filename='css/ativacao.css') }}?v=gradient-cards-1" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/design-system.css') }}?v=clean-1" rel="stylesheet">
 </head>
 <body>
-  <nav class="topbar ativacao-topbar d-flex align-items-center justify-content-between px-3">
-    <div class="d-flex align-items-center gap-2">
-      <span class="topbar-brand">REDE<span class="text-accent">B2B</span></span>
-      <span class="badge rounded-pill ativacao-badge"><i class="bi bi-lightning-charge-fill"></i> Ativação</span>
-    </div>
-    <div class="d-flex align-items-center gap-2">
-      <a href="/" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Painel principal</a>
-      <a href="/dashboard" class="btn btn-outline-primary btn-sm"><i class="bi bi-bar-chart-line"></i> Dashboard B2B</a>
-      <a href="/reparo" class="btn btn-outline-primary btn-sm"><i class="bi bi-tools"></i> Reparo</a>
-      <button class="btn btn-outline-secondary btn-sm" id="btnAtualizarAtivacao" type="button"><i class="bi bi-arrow-clockwise"></i> Atualizar</button>
-      <button class="btn btn-ativacao btn-sm" id="btnNovaAtivacao" type="button"><i class="bi bi-plus-lg"></i> Nova atividade</button>
-      <button class="btn btn-outline-danger btn-sm btn-encerrar-app" type="button" title="Encerrar o aplicativo local"><i class="bi bi-power"></i> Encerrar aplicativo</button>
-    </div>
-  </nav>
+  <div class="rb-shell">
+  {% set active_page = 'ativacao' %}{% set source_label = 'ATIVACAO.xlsx' %}{% include '_sidebar.html' %}
+  <div class="rb-workspace">
+  <header class="rb-topbar"><div class="rb-title"><h1>Ativação</h1><p>Execuções, indicadores e atividades</p></div><div class="rb-source" id="ativacaoArquivoStatusTop">ATIVACAO.xlsx</div><div class="rb-toolbar"><button class="rb-btn rb-btn-icon" id="btnAtualizarAtivacao" type="button" title="Atualizar"><i class="bi bi-arrow-clockwise"></i></button><button class="rb-btn rb-btn-primary" id="btnNovaAtivacao" type="button"><i class="bi bi-plus-lg"></i><span class="rb-btn-label">Nova atividade</span></button><button class="rb-btn rb-btn-icon btn-encerrar-app" type="button" title="Encerrar aplicativo"><i class="bi bi-power"></i></button></div></header>
 
-  <main class="container-fluid p-3 ativacao-page">
+  <main class="rb-page ativacao-page">
     <section class="ativacao-filter-card mb-3" aria-labelledby="ativacaoFiltrosTitulo">
       <div class="filter-card-title">
         <div>
@@ -118,7 +109,7 @@
       </div>
       <div class="table-card-footer d-flex justify-content-between align-items-center"><span id="ativacaoPaginationInfo" class="text-muted">—</span><ul class="pagination pagination-sm mb-0" id="ativacaoPagination"></ul></div>
     </section>
-  </main>
+  </main></div></div>
 
   <datalist id="listaClientesAtivacao"></datalist>
 

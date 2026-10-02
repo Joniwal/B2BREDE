@@ -13,34 +13,15 @@
 <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 <link href="{{ url_for('static', filename='css/styles.css') }}?v=fechamento-export-1" rel="stylesheet">
+<link href="{{ url_for('static', filename='css/design-system.css') }}?v=clean-1" rel="stylesheet">
 </head>
 <body>
+<div class="rb-shell">
+{% set active_page = 'dashboard' %}{% set source_label = 'REDE_B2B.xlsx' %}{% include '_sidebar.html' %}
+<div class="rb-workspace">
+<header class="rb-topbar"><div class="rb-title"><h1>Dashboard B2B</h1><p>Análises e fechamento operacional</p></div><div class="rb-source">REDE_B2B.xlsx sincronizado</div><div class="rb-toolbar"><button class="rb-btn rb-btn-icon btn-encerrar-app" type="button" title="Encerrar aplicativo"><i class="bi bi-power"></i></button></div></header>
 
-<!-- ============================ TOPO ============================ -->
-<nav class="topbar d-flex align-items-center justify-content-between px-3">
-  <div class="d-flex align-items-center gap-2">
-    <span class="topbar-brand">REDE<span class="text-accent">B2B</span></span>
-    <span class="badge rounded-pill bg-mode ms-2">
-      <i class="bi bi-bar-chart-line"></i> Dashboard
-    </span>
-  </div>
-  <div class="d-flex align-items-center gap-2">
-    <a href="/" class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-arrow-left"></i> Voltar ao painel
-    </a>
-    <a href="/ativacao" class="btn btn-outline-primary btn-sm">
-      <i class="bi bi-lightning-charge"></i> Ativação
-    </a>
-    <a href="/reparo" class="btn btn-outline-primary btn-sm">
-      <i class="bi bi-tools"></i> Reparo
-    </a>
-    <button class="btn btn-outline-danger btn-sm btn-encerrar-app" type="button" title="Encerrar o aplicativo local">
-      <i class="bi bi-power"></i> Encerrar aplicativo
-    </button>
-  </div>
-</nav>
-
-<main class="p-3">
+<main class="rb-page">
 
   <!-- FILTRO DE PERÍODO -->
   <div class="table-card p-3 mb-3">
@@ -198,6 +179,8 @@
   </div>
 
 </main>
+</div>
+</div>
 
 <div id="alertContainer" class="alert-container"></div>
 
