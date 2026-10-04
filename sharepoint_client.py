@@ -17,13 +17,22 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Iterable
 
-import msal
 import pandas as pd
-import requests
 from excel_io import ExcelSafetyError
 from excel_safe import SafeExcel
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
+
+# O acesso via Microsoft Graph é opcional. A operação padrão utiliza os
+# arquivos já sincronizados pelo OneDrive e não deve exigir MSAL/Requests.
+try:
+    import msal
+    import requests
+    from requests.adapters import HTTPAdapter
+    from urllib3.util.retry import Retry
+except ImportError:  # Dependências necessárias somente no modo Graph.
+    msal = None
+    requests = None
+    HTTPAdapter = None
+    Retry = None
 
 
 log = logging.getLogger(__name__)
@@ -499,6 +508,14 @@ class SharePointClient(QueryMixin):
         field_map: dict[str, str] | None = None,
         timeout: int = 30,
     ) -> None:
+        if msal is None or requests is None or HTTPAdapter is None or Retry is None:
+            raise DataStoreError(
+                "O modo Microsoft Graph não está instalado. Use o Excel "
+                "sincronizado pelo OneDrive ou instale os pacotes opcionais "
+                "'msal' e 'requests'.",
+                code="GRAPH_DEPENDENCY_MISSING",
+                status=503,
+            )
         missing = [
             name
             for name, value in {

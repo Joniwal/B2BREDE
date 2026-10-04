@@ -43,7 +43,6 @@ python -m PyInstaller --name REDEB2B --noconfirm --onefile --icon static\favicon
   --collect-all pandas ^
   --collect-all openpyxl ^
   --collect-all holidays ^
-  --collect-all msal ^
   --collect-all flask ^
   app.py
 if errorlevel 1 goto :erro
