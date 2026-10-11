@@ -653,6 +653,12 @@ class AtivacaoClient:
                 raise DataClientError("Mês da Execução inválido.", status_code=400) from exc
         exact_fields = ("servico", "tecnologia", "empresa", "status", "faturado", "com_rfs")
         query = _text(filters.get("q")).casefold()
+
+        def matches_selected(value, selected):
+            selected = selected if isinstance(selected, (list, tuple, set)) else [selected]
+            wanted = {_text(item).casefold() for item in selected if _text(item)}
+            return not wanted or _text(value).casefold() in wanted
+
         result = []
         for item in rows:
             if execution_date and _parse_date(item.get("data_execucao")) != execution_date:
@@ -661,11 +667,7 @@ class AtivacaoClient:
                 continue
             if execution_month and not _text(item.get("data_execucao")).startswith(f"{execution_month}-"):
                 continue
-            if any(
-                filters.get(field)
-                and _text(item.get(field)).casefold() != _text(filters[field]).casefold()
-                for field in exact_fields
-            ):
+            if any(filters.get(field) and not matches_selected(item.get(field), filters[field]) for field in exact_fields):
                 continue
             if query and query not in " ".join(_text(item.get(field)) for field in FIELDS).casefold():
                 continue

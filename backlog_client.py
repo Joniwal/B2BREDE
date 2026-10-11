@@ -201,15 +201,21 @@ class BacklogClient:
         start = _date(filters.get("data_inicio"))
         end = _date(filters.get("data_fim"))
         query = _normalize(filters.get("q"))
+
+        def matches_selected(value, selected):
+            selected = selected if isinstance(selected, (list, tuple, set)) else [selected]
+            wanted = {_normalize(item) for item in selected if _text(item)}
+            return not wanted or _normalize(value) in wanted
+
         result = []
         for row in rows:
-            if filters.get("carteira") and _normalize(cls._value(row, "Carteira")) != _normalize(filters["carteira"]):
+            if filters.get("carteira") and not matches_selected(cls._value(row, "Carteira"), filters["carteira"]):
                 continue
-            if filters.get("uf") and _normalize(cls._value(row, "UF")) != _normalize(filters["uf"]):
+            if filters.get("uf") and not matches_selected(cls._value(row, "UF"), filters["uf"]):
                 continue
-            if filters.get("cidade") and _normalize(cls._value(row, "Cidade")) != _normalize(filters["cidade"]):
+            if filters.get("cidade") and not matches_selected(cls._value(row, "Cidade"), filters["cidade"]):
                 continue
-            if filters.get("tecnologia") and _normalize(cls._technology(row)) != _normalize(filters["tecnologia"]):
+            if filters.get("tecnologia") and not matches_selected(cls._technology(row), filters["tecnologia"]):
                 continue
             entry_date = _date(cls._value(row, "Data_Entrada"))
             if start and (not entry_date or entry_date < start):
@@ -269,22 +275,11 @@ class BacklogClient:
         rows = self._filter(rows, filters)
         total = len(rows)
         rfs_rows = [row for row in rows if _date(self._value(row, "Data_RFS"))]
-        aging = [_number(self._value(row, "Dias_CarteiraAtual", "Aging Atual")) for row in rows]
-        aging = [value for value in aging if value is not None]
-
         carteira_counts = Counter(_text(self._value(row, "Carteira")) or "Não informado" for row in rows)
-        carteira_aging: dict[str, list[float]] = {}
-        for row in rows:
-            name = _text(self._value(row, "Carteira")) or "Não informado"
-            value = _number(self._value(row, "Dias_CarteiraAtual", "Aging Atual"))
-            if value is not None:
-                carteira_aging.setdefault(name, []).append(value)
         carteiras = []
         for name, count in sorted(carteira_counts.items(), key=lambda item: (-item[1], item[0].casefold())):
-            values = carteira_aging.get(name, [])
-            average = round(sum(values) / len(values), 1) if values else None
-            level = "ok" if average is not None and average <= 15 else "warning" if average is not None and average <= 30 else "critical" if average is not None else "neutral"
-            carteiras.append({"nome": name, "quantidade": count, "aging_medio": average, "nivel": level})
+            level = "ok" if count <= 20 else "critical"
+            carteiras.append({"nome": name, "quantidade": count, "nivel": level})
 
         rfs_by_day = Counter(_date(self._value(row, "Data_RFS")) for row in rfs_rows)
         dates = sorted(value for value in rfs_by_day if value)
@@ -295,7 +290,6 @@ class BacklogClient:
             "total": total,
             "com_rfs": len(rfs_rows),
             "percentual_rfs": round((len(rfs_rows) / total * 100), 1) if total else 0,
-            "aging_medio": round(sum(aging) / len(aging), 1) if aging else 0,
             "ultima_atualizacao": max(latest_updates).isoformat() if latest_updates else "",
             "carteiras": carteiras,
             "rfs_por_dia": {

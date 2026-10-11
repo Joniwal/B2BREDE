@@ -26,8 +26,8 @@
       </div>
       <div class="row g-2 align-items-end">
         <div class="col-12 col-lg-4"><label class="form-label" for="qBusca">Busca</label><input class="form-control form-control-sm" id="qBusca" type="search" placeholder="ID, cliente, cidade ou observação"></div>
-        <div class="col-6 col-md-3 col-lg-2"><label class="form-label" for="qStatus">Status</label><select class="form-select form-select-sm" id="qStatus"><option value="">Todos</option></select></div>
-        <div class="col-6 col-md-3 col-lg-2"><label class="form-label" for="qTecnologia">Tecnologia</label><select class="form-select form-select-sm" id="qTecnologia"><option value="">Todas</option></select></div>
+        <div class="col-6 col-md-3 col-lg-2"><label class="form-label" for="qStatus">Status</label><select class="form-select form-select-sm" id="qStatus" data-multi-select data-all-label="Todos"><option value="">Todos</option></select></div>
+        <div class="col-6 col-md-3 col-lg-2"><label class="form-label" for="qTecnologia">Tecnologia</label><select class="form-select form-select-sm" id="qTecnologia" data-multi-select data-all-label="Todas"><option value="">Todas</option></select></div>
         <div class="col-6 col-md-3 col-lg-2"><label class="form-label" for="qDataInicio">Agendamento — de</label><input class="form-control form-control-sm" id="qDataInicio" type="date"></div>
         <div class="col-6 col-md-3 col-lg-2"><label class="form-label" for="qDataFim">Agendamento — até</label><input class="form-control form-control-sm" id="qDataFim" type="date"></div>
       </div>
@@ -89,7 +89,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
   <script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}?v=4.4.1"></script>
   <script src="{{ url_for('static', filename='js/chart-value-labels.js') }}?v=1"></script>
-  <script src="{{ url_for('static', filename='js/qualidade.js') }}?v=qualidade-3"></script>
+  <script src="{{ url_for('static', filename='js/multi-select.js') }}?v=multi-1"></script>
+  <script src="{{ url_for('static', filename='js/qualidade.js') }}?v=multi-filtros-1"></script>
   <script src="{{ url_for('static', filename='js/app-controls.js') }}?v=encerrar-1"></script>
 </body>
 </html>

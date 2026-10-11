@@ -273,6 +273,10 @@ function updateSiteLiberadoVisibility({ resetWhenHidden = true } = {}) {
 function setSelectValueWithFallback(selectId, value) {
   const select = document.getElementById(selectId);
   if (!select) return;
+  if (select.multiple && window.rbMultiSelect) {
+    window.rbMultiSelect.setValues(select, value ? [value] : []);
+    return;
+  }
   if (!value) {
     select.value = "";
     return;
@@ -296,7 +300,8 @@ function clearSelectFallbackOptions(selectId) {
 function limparTodosFiltros() {
   ["fCliente", "fId", "fCidade", "fTecnologia", "fExecutadoPor", "fStatus", "fMes", "fDataInicio", "fDataFim"].forEach((id) => {
     const field = document.getElementById(id);
-    if (field) field.value = "";
+    if (field?.multiple && window.rbMultiSelect) window.rbMultiSelect.clear(field);
+    else if (field) field.value = "";
   });
   document.getElementById("quickSearch").value = "";
   const quickStatus = document.getElementById("quickStatusFilter");
@@ -317,7 +322,9 @@ function filtrarAtividadesEmCampoHoje() {
   }
 
   ["fCliente", "fId", "fCidade", "fTecnologia", "fExecutadoPor", "fMes"].forEach((id) => {
-    document.getElementById(id).value = "";
+    const field = document.getElementById(id);
+    if (field?.multiple && window.rbMultiSelect) window.rbMultiSelect.clear(field);
+    else field.value = "";
   });
   document.getElementById("quickSearch").value = "";
   setSelectValueWithFallback("fStatus", "EM CAMPO");
@@ -338,7 +345,7 @@ function atualizarEstadoCardEmCampo() {
   const data = card.dataset.data || "";
   const ativo = Boolean(
     data
-    && normalizeStatusKey(state.filters.status) === "em campo"
+    && (state.filters.status || []).some((status) => normalizeStatusKey(status) === "em campo")
     && state.filters.data_inicio === data
     && state.filters.data_fim === data
   );
@@ -358,7 +365,7 @@ function bindEvents() {
   document.getElementById("btnLimparFiltrosTabela")?.addEventListener("click", limparTodosFiltros);
 
   document.getElementById("quickStatusFilter")?.addEventListener("change", (e) => {
-    document.getElementById("fStatus").value = e.target.value;
+    window.rbMultiSelect?.setValues("fStatus", e.target.value ? [e.target.value] : []);
     collectFilters();
     state.page = 1;
     loadItems();
@@ -476,11 +483,11 @@ function collectFilters() {
   state.filters = {
     cliente: document.getElementById("fCliente").value || undefined,
     id: document.getElementById("fId").value || undefined,
-    cidade: document.getElementById("fCidade").value || undefined,
-    tecnologia: document.getElementById("fTecnologia").value || undefined,
-    executadopor: document.getElementById("fExecutadoPor").value || undefined,
-    status: document.getElementById("fStatus").value || undefined,
-    mes: document.getElementById("fMes").value || undefined,
+    cidade: window.rbMultiSelect?.values("fCidade") || [],
+    tecnologia: window.rbMultiSelect?.values("fTecnologia") || [],
+    executadopor: window.rbMultiSelect?.values("fExecutadoPor") || [],
+    status: window.rbMultiSelect?.values("fStatus") || [],
+    mes: window.rbMultiSelect?.values("fMes") || [],
     data_inicio: document.getElementById("fDataInicio").value || undefined,
     data_fim: document.getElementById("fDataFim").value || undefined,
     q: document.getElementById("quickSearch").value || undefined,
@@ -507,7 +514,8 @@ function buildQueryParams(extra = {}) {
     ...extra,
   };
   Object.entries(map).forEach(([k, v]) => {
-    if (v !== undefined && v !== null && v !== "") params.append(k, v);
+    if (Array.isArray(v) && v.length) params.append(k, v.join(","));
+    else if (v !== undefined && v !== null && v !== "") params.append(k, v);
   });
   return params;
 }

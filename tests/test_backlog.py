@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 
 import api
 from app import create_app
@@ -48,15 +48,24 @@ class BacklogTests(unittest.TestCase):
         status = self.http.get("/api/backlog/status").get_json()["data"]
         self.assertEqual(status["arquivo"], "Backlog.xlsx")
 
-    def test_dashboard_aggregates_rfs_wallet_and_aging(self):
+    def test_dashboard_is_home_and_rede_has_its_own_route(self):
+        home = self.http.get("/")
+        rede = self.http.get("/rede")
+        self.assertEqual(home.status_code, 200)
+        self.assertIn(b"Dashboard B2B", home.data)
+        self.assertEqual(rede.status_code, 200)
+        self.assertIn(b"<h1>Rede</h1>", rede.data)
+
+    def test_dashboard_aggregates_rfs_and_wallet_situation_by_quantity(self):
         data = self.client.dashboard()
         self.assertEqual(data["total"], 3)
         self.assertEqual(data["com_rfs"], 2)
         self.assertEqual(data["percentual_rfs"], 66.7)
-        self.assertEqual(data["aging_medio"], 21.7)
+        self.assertNotIn("aging_medio", data)
         self.assertEqual(data["rfs_por_dia"]["values"], [2])
         self.assertEqual(data["carteiras"][0]["nome"], "Ativação")
         self.assertEqual(data["carteiras"][0]["quantidade"], 2)
+        self.assertEqual(data["carteiras"][0]["nivel"], "ok")
 
     def test_filters_pagination_and_export(self):
         response = self.http.get("/api/backlog/records?uf=PR&page=1&page_size=10")
@@ -68,6 +77,20 @@ class BacklogTests(unittest.TestCase):
         exported = self.http.get("/api/backlog/export?tecnologia=GPON")
         self.assertEqual(exported.status_code, 200)
         self.assertIn("spreadsheetml.sheet", exported.content_type)
+
+        multiple = self.http.get("/api/backlog/records?uf=PR,SP&page=1&page_size=10").get_json()["data"]
+        self.assertEqual(multiple["total"], 3)
+
+    def test_wallet_situation_turns_critical_above_twenty_items(self):
+        workbook = load_workbook(self.path)
+        sheet = workbook["Planilha1"]
+        for index in range(19):
+            sheet.append([f"EXTRA-{index}", f"X-{index}", "Cliente", "PR", "Curitiba", "Ativação", "IP", "GPON", 1, datetime(2026, 9, 4), "", datetime(2026, 9, 30)])
+        workbook.save(self.path)
+        workbook.close()
+        carteira = next(item for item in self.client.dashboard()["carteiras"] if item["nome"] == "Ativação")
+        self.assertEqual(carteira["quantidade"], 21)
+        self.assertEqual(carteira["nivel"], "critical")
 
     def test_options(self):
         data = self.http.get("/api/backlog/options").get_json()["data"]

@@ -517,7 +517,7 @@ class DataClient:
 
         return selecionados, inicio, fim, usa_dia_anterior
 
-    def analytics(self, ano=None, mes=None, data_inicio=None, data_fim=None):
+    def analytics(self, ano=None, mes=None, data_inicio=None, data_fim=None, tecnologias=None):
         """Agregações para a página de Dashboard (/dashboard), com uma
         janela de tempo configurável:
           - data_inicio/data_fim informados -> usa esse intervalo exato
@@ -531,6 +531,17 @@ class DataClient:
         com "quando foi concluído").
         """
         rows = self._excel_read_all()
+        tecnologias = tecnologias or []
+        if not isinstance(tecnologias, (list, tuple, set)):
+            tecnologias = [tecnologias]
+        tecnologias_normalizadas = {
+            _strip_accents(str(item).strip()) for item in tecnologias if str(item).strip()
+        }
+        if tecnologias_normalizadas:
+            rows = [
+                row for row in rows
+                if _strip_accents(str(row.get("TECNOLOGIA") or "").strip()) in tecnologias_normalizadas
+            ]
 
         meses_alvo, janela_ini, janela_fim = self._resolver_janela_analises(ano, mes, data_inicio, data_fim)
 
@@ -717,12 +728,18 @@ class DataClient:
             "drafts_por_mes": drafts_por_mes,
         }
 
-    def analytics_export(self, ano=None, mes=None, grafico="geral", data_inicio=None, data_fim=None):
+    def analytics_export(self, ano=None, mes=None, grafico="geral", data_inicio=None, data_fim=None, tecnologias=None):
         """Retorna as linhas (registros completos) que alimentam um gráfico
         específico da página de Dashboard, respeitando a mesma janela de
         tempo (ano/mês ou intervalo de datas) usada em analytics(). Usado
         para o botão de baixar Excel em cada card de gráfico."""
         rows = self._excel_read_all()
+        tecnologias = tecnologias or []
+        if not isinstance(tecnologias, (list, tuple, set)):
+            tecnologias = [tecnologias]
+        selecionadas = {_strip_accents(str(item).strip()) for item in tecnologias if str(item).strip()}
+        if selecionadas:
+            rows = [row for row in rows if _strip_accents(str(row.get("TECNOLOGIA") or "").strip()) in selecionadas]
 
         meses_alvo, janela_ini, janela_fim = self._resolver_janela_analises(ano, mes, data_inicio, data_fim)
 
@@ -768,7 +785,7 @@ class DataClient:
         return rows_na_janela
 
     def export_fechamento_geral(
-        self, ano=None, mes=None, data_inicio=None, data_fim=None
+        self, ano=None, mes=None, data_inicio=None, data_fim=None, tecnologias=None
     ):
         """Gera uma cópia filtrada da planilha-base preservando sua Tabela.
 
@@ -809,6 +826,8 @@ class DataClient:
                     if name:
                         headers[name] = column
                 campos_filtro = ["ATIVIDADE", "STATUS", "DATAAGENDAMENTO", "DATACONCLUSAO"]
+                if tecnologias:
+                    campos_filtro.append("TECNOLOGIA")
                 missing = [field for field in campos_filtro if field not in headers]
                 if missing:
                     raise DataClientError(
@@ -836,6 +855,12 @@ class DataClient:
                         data_fim=data_fim,
                     )
                 )
+                if tecnologias:
+                    escolhidas = {_strip_accents(str(value).strip()) for value in tecnologias if str(value).strip()}
+                    selecionados = [
+                        row for row in selecionados
+                        if _strip_accents(str(row.get("TECNOLOGIA") or "").strip()) in escolhidas
+                    ]
 
                 snapshots = []
                 for registro in selecionados:
@@ -1205,26 +1230,34 @@ class DataClient:
         data_fim = filters.get("data_fim")
         busca = filters.get("q")
 
+        def choices(value):
+            if isinstance(value, (list, tuple, set)):
+                return [item for item in value if str(item).strip()]
+            return [value] if value not in (None, "") else []
+
+        def equals_any(value, selected):
+            wanted = {_strip_accents(str(item).strip()) for item in choices(selected)}
+            return not wanted or _strip_accents(str(value or "").strip()) in wanted
+
+        def contains_any(value, selected):
+            normalized = _strip_accents(value)
+            wanted = [_strip_accents(item) for item in choices(selected)]
+            return not wanted or any(item in normalized for item in wanted)
+
         def match(row):
             if cliente and _strip_accents(cliente) not in _strip_accents(row.get("CLIENTE")):
                 return False
             if idcliente and str(idcliente) not in str(row.get("IDCLIENTE", "")):
                 return False
-            if cidade and _strip_accents(cidade) not in _strip_accents(row.get("CIDADE")):
+            if cidade and not contains_any(row.get("CIDADE"), cidade):
                 return False
-            if atividade and _strip_accents(str(atividade).strip()) != _strip_accents(
-                str(row.get("ATIVIDADE") or "").strip()
-            ):
+            if atividade and not equals_any(row.get("ATIVIDADE"), atividade):
                 return False
-            if tecnologia and _strip_accents(str(tecnologia).strip()) != _strip_accents(
-                str(row.get("TECNOLOGIA") or "").strip()
-            ):
+            if tecnologia and not equals_any(row.get("TECNOLOGIA"), tecnologia):
                 return False
-            if executadopor and _strip_accents(executadopor) not in _strip_accents(row.get("EXECUTADOPOR")):
+            if executadopor and not contains_any(row.get("EXECUTADOPOR"), executadopor):
                 return False
-            if status and _strip_accents(str(status).strip()) != _strip_accents(
-                str(row.get("STATUS") or "").strip()
-            ):
+            if status and not equals_any(row.get("STATUS"), status):
                 return False
             if mes:
                 if _strip_accents(row.get("STATUS")) != _strip_accents("Concluído"):
@@ -1233,7 +1266,7 @@ class DataClient:
                 if not d:
                     return False
                 _ano_d, mes_d, _dia_d = d.split("-")
-                if int(mes_d) != int(mes):
+                if str(int(mes_d)) not in {str(int(item)) for item in choices(mes)}:
                     return False
             if data_inicio or data_fim:
                 d = _parse_date(row.get("DATAAGENDAMENTO"))

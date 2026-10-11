@@ -46,23 +46,23 @@
         </div>
         <div class="col-6 col-md-4 col-xl-2">
           <label for="fAtivacaoServico" class="form-label">Serviço</label>
-          <select id="fAtivacaoServico" class="form-select form-select-sm"><option value="">Todos</option></select>
+          <select id="fAtivacaoServico" class="form-select form-select-sm" data-multi-select data-all-label="Todos"><option value="">Todos</option></select>
         </div>
         <div class="col-6 col-md-4 col-xl-1">
           <label for="fAtivacaoTecnologia" class="form-label">Tecnologia</label>
-          <select id="fAtivacaoTecnologia" class="form-select form-select-sm"><option value="">Todas</option></select>
+          <select id="fAtivacaoTecnologia" class="form-select form-select-sm" data-multi-select data-all-label="Todas"><option value="">Todas</option></select>
         </div>
         <div class="col-6 col-md-4 col-xl-1">
           <label for="fAtivacaoStatus" class="form-label">Status</label>
-          <select id="fAtivacaoStatus" class="form-select form-select-sm"><option value="">Todos</option></select>
+          <select id="fAtivacaoStatus" class="form-select form-select-sm" data-multi-select data-all-label="Todos"><option value="">Todos</option></select>
         </div>
         <div class="col-6 col-md-4 col-xl-1">
           <label for="fAtivacaoFaturado" class="form-label">Campo</label>
-          <select id="fAtivacaoFaturado" class="form-select form-select-sm"><option value="">Todos</option></select>
+          <select id="fAtivacaoFaturado" class="form-select form-select-sm" data-multi-select data-all-label="Todos"><option value="">Todos</option></select>
         </div>
         <div class="col-6 col-md-4 col-xl-1">
           <label for="fAtivacaoRfs" class="form-label">Com RFS</label>
-          <select id="fAtivacaoRfs" class="form-select form-select-sm"><option value="">Todos</option></select>
+          <select id="fAtivacaoRfs" class="form-select form-select-sm" data-multi-select data-all-label="Todos"><option value="">Todos</option></select>
         </div>
       </div>
       <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
@@ -166,7 +166,8 @@
   <div id="ativacaoAlertContainer" class="alert-container" aria-live="polite"></div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-  <script src="{{ url_for('static', filename='js/ativacao.js') }}?v=ativacao-servicos-status-1"></script>
+  <script src="{{ url_for('static', filename='js/multi-select.js') }}?v=multi-1"></script>
+  <script src="{{ url_for('static', filename='js/ativacao.js') }}?v=multi-filtros-1"></script>
   <script src="{{ url_for('static', filename='js/app-controls.js') }}?v=encerrar-1"></script>
 </body>
 </html>

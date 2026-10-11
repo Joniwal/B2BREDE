@@ -20,6 +20,8 @@ from excel_client import DataClient, DataClientError, FIELDS
 from ativacao_client import AtivacaoClient, EXCEL_HEADERS as ATIVACAO_HEADERS, FIELDS as ATIVACAO_FIELDS
 from reparo_client import ReparoClient, EXCEL_HEADERS as REPARO_HEADERS, FIELDS as REPARO_FIELDS
 from backlog_client import BacklogClient
+from analitico_client import AnaliticoClient
+from dashboard_service import DashboardService
 
 logger = logging.getLogger("redeb2b.api")
 api_bp = Blueprint("api", __name__, url_prefix="/api")
@@ -28,6 +30,7 @@ data_client = DataClient()
 ativacao_client = AtivacaoClient()
 reparo_client = ReparoClient()
 backlog_client = BacklogClient()
+analitico_client = AnaliticoClient()
 
 QUALIDADE_ATIVIDADE = "AÇÃO DE QUALIDADE"
 
@@ -36,16 +39,24 @@ def _error_response(exc: DataClientError):
     return jsonify({"ok": False, "error": exc.message}), exc.status_code
 
 
+def _multi_arg(name):
+    """Aceita valores repetidos ou separados por vírgula nos filtros."""
+    values = []
+    for raw in request.args.getlist(name):
+        values.extend(part.strip() for part in str(raw).split(",") if part.strip())
+    return list(dict.fromkeys(values)) or None
+
+
 def _parse_pagination_and_filters():
     filters = {
         "cliente": request.args.get("cliente"),
         "id": request.args.get("id"),
-        "cidade": request.args.get("cidade"),
+        "cidade": _multi_arg("cidade"),
         "atividade": request.args.get("atividade"),
-        "tecnologia": request.args.get("tecnologia"),
-        "executadopor": request.args.get("executadopor"),
-        "status": request.args.get("status"),
-        "mes": request.args.get("mes"),
+        "tecnologia": _multi_arg("tecnologia"),
+        "executadopor": _multi_arg("executadopor"),
+        "status": _multi_arg("status"),
+        "mes": _multi_arg("mes"),
         "data_inicio": request.args.get("dataInicio"),
         "data_fim": request.args.get("dataFim"),
         "q": request.args.get("q"),
@@ -68,8 +79,8 @@ def _normalize_text(value):
 def _parse_qualidade_filters():
     filters = {
         "atividade": QUALIDADE_ATIVIDADE,
-        "status": request.args.get("status"),
-        "tecnologia": request.args.get("tecnologia"),
+        "status": _multi_arg("status"),
+        "tecnologia": _multi_arg("tecnologia"),
         "data_inicio": request.args.get("dataInicio"),
         "data_fim": request.args.get("dataFim"),
         "q": request.args.get("q"),
@@ -89,12 +100,12 @@ def _qualidade_item(item_id):
 
 def _parse_ativacao_filters():
     filters = {
-        "servico": request.args.get("servico"),
-        "empresa": request.args.get("empresa"),
-        "tecnologia": request.args.get("tecnologia"),
-        "status": request.args.get("status"),
-        "faturado": request.args.get("faturado"),
-        "com_rfs": request.args.get("comRfs"),
+        "servico": _multi_arg("servico"),
+        "empresa": _multi_arg("empresa"),
+        "tecnologia": _multi_arg("tecnologia"),
+        "status": _multi_arg("status"),
+        "faturado": _multi_arg("faturado"),
+        "com_rfs": _multi_arg("comRfs"),
         "data_execucao": request.args.get("dataExecucao"),
         "data_agendamento": request.args.get("dataAgendamento"),
         "mes_execucao": request.args.get("mesExecucao"),
@@ -105,10 +116,10 @@ def _parse_ativacao_filters():
 
 def _parse_reparo_filters():
     filters = {
-        "status": request.args.get("status"),
-        "uf": request.args.get("uf"),
-        "eps": request.args.get("eps"),
-        "tecnologia": request.args.get("tecnologia"),
+        "status": _multi_arg("status"),
+        "uf": _multi_arg("uf"),
+        "eps": _multi_arg("eps"),
+        "tecnologia": _multi_arg("tecnologia"),
         "busca": request.args.get("busca"),
         "de": request.args.get("de"),
         "ate": request.args.get("ate"),
@@ -119,10 +130,10 @@ def _parse_reparo_filters():
 def _parse_backlog_filters():
     filters = {
         "q": request.args.get("q"),
-        "carteira": request.args.get("carteira"),
-        "uf": request.args.get("uf"),
-        "cidade": request.args.get("cidade"),
-        "tecnologia": request.args.get("tecnologia"),
+        "carteira": _multi_arg("carteira"),
+        "uf": _multi_arg("uf"),
+        "cidade": _multi_arg("cidade"),
+        "tecnologia": _multi_arg("tecnologia"),
         "data_inicio": request.args.get("dataInicio"),
         "data_fim": request.args.get("dataFim"),
     }
@@ -236,7 +247,19 @@ def get_analytics():
         mes = int(mes_raw) if mes_raw else None
         data_inicio = request.args.get("dataInicio") or None
         data_fim = request.args.get("dataFim") or None
-        result = data_client.analytics(ano=ano, mes=mes, data_inicio=data_inicio, data_fim=data_fim)
+        tecnologias = _multi_arg("tecnologia")
+        eps = _multi_arg("eps")
+        carteiras = _multi_arg("carteira")
+        base = data_client.analytics(
+            ano=ano, mes=mes, data_inicio=data_inicio, data_fim=data_fim,
+            tecnologias=tecnologias,
+        )
+        result = DashboardService(
+            data_client, ativacao_client, reparo_client, backlog_client, analitico_client
+        ).build(
+            base=base, ano=ano, mes=mes, data_inicio=data_inicio, data_fim=data_fim,
+            tecnologias=tecnologias, eps=eps, carteiras=carteiras,
+        )
         return jsonify({"ok": True, "data": result})
     except DataClientError as exc:
         return _error_response(exc)
@@ -245,6 +268,19 @@ def get_analytics():
     except Exception:  # noqa: BLE001
         logger.exception("Erro inesperado em GET /api/analytics")
         return jsonify({"ok": False, "error": "Erro interno ao gerar as análises."}), 500
+
+
+@api_bp.route("/analytics/options", methods=["GET"])
+def get_analytics_options():
+    """Opções consolidadas para os filtros executivos do Dashboard."""
+    try:
+        result = DashboardService(
+            data_client, ativacao_client, reparo_client, backlog_client, analitico_client
+        ).options()
+        return jsonify({"ok": True, "data": result})
+    except Exception:  # noqa: BLE001
+        logger.exception("Erro inesperado em GET /api/analytics/options")
+        return jsonify({"ok": False, "error": "Erro interno ao carregar os filtros do Dashboard."}), 500
 
 
 @api_bp.route("/analytics/export", methods=["GET"])
@@ -262,7 +298,8 @@ def export_analytics():
         grafico = request.args.get("grafico", "geral")
 
         rows = data_client.analytics_export(
-            ano=ano, mes=mes, grafico=grafico, data_inicio=data_inicio, data_fim=data_fim
+            ano=ano, mes=mes, grafico=grafico, data_inicio=data_inicio, data_fim=data_fim,
+            tecnologias=_multi_arg("tecnologia"),
         )
         df = pd.DataFrame(rows, columns=FIELDS)
         buffer = io.BytesIO()
@@ -302,6 +339,7 @@ def export_fechamento_geral():
             mes=mes,
             data_inicio=data_inicio,
             data_fim=data_fim,
+            tecnologias=_multi_arg("tecnologia"),
         )
         inicio = metadata["data_inicio"].replace("-", "")
         fim = metadata["data_fim"].replace("-", "")

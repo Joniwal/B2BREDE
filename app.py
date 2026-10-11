@@ -74,10 +74,11 @@ def create_app():
     from api import api_bp
     app.register_blueprint(api_bp)
 
-    @app.route("/")
+    @app.route("/rede")
     def index():
         return render_template("index.html")
 
+    @app.route("/")
     @app.route("/analises")
     @app.route("/dashboard")
     def analises():

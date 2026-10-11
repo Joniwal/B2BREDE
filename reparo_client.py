@@ -653,9 +653,11 @@ class ReparoClient:
         filters = filters or {}
         result = rows
         for field, key in (("STATUS", "status"), ("UF", "uf"), ("EPS", "eps"), ("TECNOLOGIA", "tecnologia")):
-            wanted = _text(filters.get(key)).casefold()
+            selected = filters.get(key)
+            selected = selected if isinstance(selected, (list, tuple, set)) else [selected]
+            wanted = {_text(value).casefold() for value in selected if _text(value)}
             if wanted:
-                result = [item for item in result if item[field].casefold() == wanted]
+                result = [item for item in result if item[field].casefold() in wanted]
         start = _parse_date(filters.get("de"), label="Data inicial") if filters.get("de") else None
         end = _parse_date(filters.get("ate"), label="Data final") if filters.get("ate") else None
         if start and end and start > end:

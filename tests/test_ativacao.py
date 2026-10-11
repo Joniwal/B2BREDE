@@ -190,6 +190,13 @@ class AtivacaoClientTests(unittest.TestCase):
         self.assertEqual([item["cliente"] for item in execution["items"]], ["EXECUTA HOJE"])
         self.assertEqual([item["cliente"] for item in schedule["items"]], ["AGENDA HOJE"])
 
+    def test_filters_accept_multiple_combobox_values(self):
+        self.client.create(self.payload(id="MULTI-1", tecnologia="GPON", status="OK"))
+        self.client.create(self.payload(id="MULTI-2", tecnologia="ERB", status="NOK"))
+        self.client.create(self.payload(id="MULTI-3", tecnologia="DATA CENTER", status="OK"))
+        result = self.client.list({"tecnologia": ["GPON", "ERB"], "status": ["OK", "NOK"]})
+        self.assertEqual({item["id"] for item in result["items"]}, {"MULTI-1", "MULTI-2"})
+
     def test_filters_by_execution_month_through_api(self):
         self.client.create(self.payload(id="MES-ATUAL", cliente="MÊS ATUAL", data_execucao="2026-09-15"))
         self.client.create(self.payload(id="MES-ANTERIOR", cliente="MÊS ANTERIOR", data_execucao="2026-08-31"))

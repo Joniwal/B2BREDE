@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>REDEB2B — Painel de Rede B2B</title>
+<title>REDEB2B — Rede</title>
 
 <!-- Favicon / ícone do app -->
 <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
@@ -23,7 +23,7 @@
 {% set active_page = 'inicio' %}{% set source_label = 'REDE_B2B.xlsx' %}{% include '_sidebar.html' %}
 <div class="rb-workspace">
 <header class="rb-topbar">
-  <div class="rb-title"><h1>Visão geral</h1><p>Painel operacional REDEB2B</p></div>
+  <div class="rb-title"><h1>Rede</h1><p>Painel operacional REDEB2B</p></div>
   <div class="rb-top-search"><i class="bi bi-search"></i><input type="text" id="quickSearch" placeholder="Busca rápida: cliente, ID ou cidade..."></div>
   <div class="rb-toolbar">
     <button class="rb-btn rb-btn-icon" id="btnAtualizar" title="Recarregar dados"><i class="bi bi-arrow-clockwise"></i></button>
@@ -47,25 +47,25 @@
     </div>
     <div class="mb-2">
       <label class="form-label">Cidade</label>
-      <select class="form-select form-select-sm" id="fCidade"></select>
+      <select class="form-select form-select-sm" id="fCidade" data-multi-select data-all-label="Todas as cidades"></select>
     </div>
     <div class="mb-2">
       <label class="form-label">Tecnologia</label>
-      <select class="form-select form-select-sm" id="fTecnologia"></select>
+      <select class="form-select form-select-sm" id="fTecnologia" data-multi-select data-all-label="Todas"></select>
     </div>
     <div class="mb-2">
       <label class="form-label">Executado por</label>
-      <select class="form-select form-select-sm" id="fExecutadoPor"></select>
+      <select class="form-select form-select-sm" id="fExecutadoPor" data-multi-select data-all-label="Todos"></select>
     </div>
     <div class="mb-2">
       <label class="form-label">Status</label>
-      <select class="form-select form-select-sm" id="fStatus">
+      <select class="form-select form-select-sm" id="fStatus" data-multi-select data-all-label="Todos">
         <option value="">Todos</option>
       </select>
     </div>
     <div class="mb-2">
       <label class="form-label">Mês Concluído</label>
-      <select class="form-select form-select-sm" id="fMes">
+      <select class="form-select form-select-sm" id="fMes" data-multi-select data-all-label="Todos os meses">
         <option value="">Todos os meses</option>
         <option value="1">Janeiro</option>
         <option value="2">Fevereiro</option>
@@ -232,7 +232,8 @@
 <!-- Chart.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <!-- Lógica da aplicação -->
-<script src="{{ url_for('static', filename='js/main.js') }}?v=qualidade-nav-1"></script>
+<script src="{{ url_for('static', filename='js/multi-select.js') }}?v=multi-1"></script>
+<script src="{{ url_for('static', filename='js/main.js') }}?v=multi-filtros-1"></script>
 <script src="{{ url_for('static', filename='js/app-controls.js') }}?v=encerrar-1"></script>
 </body>
 </html>

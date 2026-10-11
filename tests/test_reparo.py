@@ -198,6 +198,13 @@ class ReparoClientTests(unittest.TestCase):
         self.assertEqual(dashboard["serie"]["values"], [1])
         self.assertEqual(dashboard["tecnologias"]["labels"], ["ERB"])
 
+    def test_filters_accept_multiple_combobox_values(self):
+        self.client.create(self.payload(ID_VANTIVE="MULTI-GPON", TECNOLOGIA="GPON", UF="PR"))
+        self.client.create(self.payload(ID_VANTIVE="MULTI-ERB", TECNOLOGIA="ERB", UF="SP"))
+        self.client.create(self.payload(ID_VANTIVE="MULTI-SWT", TECNOLOGIA="SWT", UF="RJ"))
+        result = self.client.list({"tecnologia": ["GPON", "ERB"], "uf": ["PR", "SP"]})
+        self.assertEqual({item["ID_VANTIVE"] for item in result["items"]}, {"MULTI-GPON", "MULTI-ERB"})
+
     def test_existing_excel_base_is_prepared_without_losing_rows(self):
         workbook = Workbook()
         sheet = workbook.active

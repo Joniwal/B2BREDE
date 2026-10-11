@@ -43,7 +43,8 @@ class FakeQualityClient:
             rows = [row for row in rows if self._normalized(row["ATIVIDADE"]) == self._normalized(activity)]
         technology = (filters or {}).get("tecnologia")
         if technology:
-            rows = [row for row in rows if row["TECNOLOGIA"] == technology]
+            selected = technology if isinstance(technology, list) else [technology]
+            rows = [row for row in rows if row["TECNOLOGIA"] in selected]
         return [deepcopy(row) for row in rows]
 
     def list_items(self, filters=None, page=1, page_size=20, sort=None):

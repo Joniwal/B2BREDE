@@ -135,11 +135,11 @@
       dataExecucao: byId("fDataExecucao").value,
       dataAgendamento: byId("fDataAgendamento").value,
       mesExecucao: byId("fMesExecucao").value,
-      servico: byId("fAtivacaoServico").value,
-      tecnologia: byId("fAtivacaoTecnologia").value,
-      status: byId("fAtivacaoStatus").value,
-      faturado: byId("fAtivacaoFaturado").value,
-      comRfs: byId("fAtivacaoRfs").value,
+      servico: window.rbMultiSelect?.values("fAtivacaoServico") || [],
+      tecnologia: window.rbMultiSelect?.values("fAtivacaoTecnologia") || [],
+      status: window.rbMultiSelect?.values("fAtivacaoStatus") || [],
+      faturado: window.rbMultiSelect?.values("fAtivacaoFaturado") || [],
+      comRfs: window.rbMultiSelect?.values("fAtivacaoRfs") || [],
     };
     return Object.fromEntries(Object.entries(values).filter(([, value]) => value));
   }
@@ -413,7 +413,11 @@
 
   function resetFilterControls() {
     ["fAtivacaoBusca", "fDataExecucao", "fDataAgendamento", "fMesExecucao", "fAtivacaoServico", "fAtivacaoTecnologia", "fAtivacaoStatus", "fAtivacaoFaturado", "fAtivacaoRfs"]
-      .forEach((id) => { byId(id).value = ""; });
+      .forEach((id) => {
+        const field = byId(id);
+        if (field?.multiple && window.rbMultiSelect) window.rbMultiSelect.clear(field);
+        else field.value = "";
+      });
   }
 
   function showToday() {

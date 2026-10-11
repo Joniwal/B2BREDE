@@ -13,13 +13,13 @@
 <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 <link href="{{ url_for('static', filename='css/styles.css') }}?v=fechamento-export-1" rel="stylesheet">
-<link href="{{ url_for('static', filename='css/design-system.css') }}?v=clean-1" rel="stylesheet">
+<link href="{{ url_for('static', filename='css/design-system.css') }}?v=dashboard-executivo-1" rel="stylesheet">
 </head>
 <body>
 <div class="rb-shell">
 {% set active_page = 'dashboard' %}{% set source_label = 'REDE_B2B.xlsx' %}{% include '_sidebar.html' %}
 <div class="rb-workspace">
-<header class="rb-topbar"><div class="rb-title"><h1>Dashboard B2B</h1><p>Análises e fechamento operacional</p></div><div class="rb-source">REDE_B2B.xlsx sincronizado</div><div class="rb-toolbar"><button class="rb-btn rb-btn-icon btn-encerrar-app" type="button" title="Encerrar aplicativo"><i class="bi bi-power"></i></button></div></header>
+<header class="rb-topbar"><div class="rb-title"><h1>Dashboard B2B</h1><p>Análises e fechamento operacional</p></div><div class="rb-source">Bases compartilhadas sincronizadas</div><div class="rb-toolbar"><button class="rb-btn rb-btn-icon btn-encerrar-app" type="button" title="Encerrar aplicativo"><i class="bi bi-power"></i></button></div></header>
 
 <main class="rb-page">
 
@@ -59,6 +59,18 @@
         <label class="form-label d-block mb-1">Data — até</label>
         <input type="date" id="fDataFimAnalise" class="form-control form-control-sm" style="width:150px;">
       </div>
+      <div>
+        <label class="form-label d-block mb-1">Tecnologia</label>
+        <select id="fTecnologiaAnalise" data-multi-select data-all-label="Todas" style="width:145px;"><option value="">Todas</option></select>
+      </div>
+      <div>
+        <label class="form-label d-block mb-1">EPS</label>
+        <select id="fEpsAnalise" data-multi-select data-all-label="Todas" style="width:135px;"><option value="">Todas</option></select>
+      </div>
+      <div>
+        <label class="form-label d-block mb-1">Carteira</label>
+        <select id="fCarteiraAnalise" data-multi-select data-all-label="Todas" style="width:145px;"><option value="">Todas</option></select>
+      </div>
       <button class="btn btn-accent btn-sm" id="btnAplicarPeriodo">
         <i class="bi bi-check2"></i> Aplicar
       </button>
@@ -69,27 +81,16 @@
     </div>
   </div>
 
-  <!-- KPIs DO PERÍODO -->
-  <div class="row g-3 mb-3 row-cols-1 row-cols-md-2 row-cols-lg-2">
-    <div class="col">
-      <div class="kpi-card kpi-grey">
-        <i class="bi bi-collection kpi-icon"></i>
-        <div>
-          <div class="kpi-label">Total de Registros no Período</div>
-          <div class="kpi-value" id="kpiTotalPeriodo">—</div>
-        </div>
-      </div>
-    </div>
-    <div class="col">
-      <div class="kpi-card kpi-blue">
-        <i class="bi bi-star kpi-icon"></i>
-        <div>
-          <div class="kpi-label">Cliente com Mais Atividades</div>
-          <div class="kpi-value" id="kpiClienteTop" style="font-size:12pt;">—</div>
-        </div>
-      </div>
-    </div>
-  </div>
+  <div id="dashboardSourceWarnings" class="mb-3"></div>
+
+  <!-- KPIs EXECUTIVOS -->
+  <section class="dashboard-kpis mb-3" aria-label="Indicadores executivos">
+    <article class="rb-kpi" style="--rb-tone:#246bfd"><div class="rb-kpi-icon"><i class="bi bi-lightning-charge"></i></div><div><span class="rb-kpi-label">Ativações no período</span><strong class="rb-kpi-value" id="kpiAtivacoes">—</strong></div></article>
+    <article class="rb-kpi" style="--rb-tone:#1ba878"><div class="rb-kpi-icon"><i class="bi bi-diagram-3"></i></div><div><span class="rb-kpi-label">Rede concluídas</span><strong class="rb-kpi-value" id="kpiRedeConcluidas">—</strong></div></article>
+    <article class="rb-kpi" style="--rb-tone:#805ad5"><div class="rb-kpi-icon"><i class="bi bi-patch-check"></i></div><div><span class="rb-kpi-label">Qualidade concluídas</span><strong class="rb-kpi-value" id="kpiQualidadeConcluidas">—</strong></div></article>
+    <article class="rb-kpi" style="--rb-tone:#e69032"><div class="rb-kpi-icon"><i class="bi bi-file-earmark-check"></i></div><div><span class="rb-kpi-label">RFS no período</span><strong class="rb-kpi-value" id="kpiRfsMes">—</strong></div></article>
+    <article class="rb-kpi" style="--rb-tone:#df5555"><div class="rb-kpi-icon"><i class="bi bi-stopwatch"></i></div><div><span class="rb-kpi-label">TMR médio analítico</span><strong class="rb-kpi-value" id="kpiTmrAnalitico">—</strong><small>horas</small></div></article>
+  </section>
 
   <!-- FECHAMENTO GERAL: ATIVIDADE X STATUS -->
   <section class="fechamento-card mb-3" aria-labelledby="fechamentoGeralTitulo">
@@ -117,9 +118,9 @@
     </div>
   </section>
 
-  <!-- GRÁFICOS -->
+  <!-- VISÃO OPERACIONAL MANTIDA -->
   <div class="row g-3 mb-3">
-    <div class="col-lg-4">
+    <div class="col-xl-4">
       <div class="chart-card">
         <h6 class="d-flex justify-content-between align-items-center">
           <span>Concluídos — linha do tempo</span>
@@ -128,55 +129,42 @@
         <div class="chart-canvas-box" style="height:240px;"><canvas id="chartConcluidosTimeline"></canvas></div>
       </div>
     </div>
-    <div class="col-lg-4">
+    <div class="col-xl-4">
       <div class="chart-card">
         <h6 class="d-flex justify-content-between align-items-center">
-          <span>Metragem por Mês e Tecnologia</span>
-          <i class="bi bi-file-earmark-excel chart-export-icon" data-grafico="metragem_por_mes_tecnologia" title="Baixar Excel destes dados"></i>
+          <span>Drafts criados por mês</span>
+          <i class="bi bi-file-earmark-excel chart-export-icon" data-grafico="drafts_por_mes" title="Baixar Excel destes dados"></i>
         </h6>
-        <div class="chart-canvas-box" style="height:240px;"><canvas id="chartMetragemMesTecnologia"></canvas></div>
+        <div class="chart-canvas-box" style="height:240px;"><canvas id="chartDraftsPorMes"></canvas></div>
       </div>
     </div>
-    <div class="col-lg-4">
+    <div class="col-xl-4">
       <div class="chart-card">
-        <h6 class="d-flex justify-content-between align-items-center">
-          <span>Tipo de Cabo por Mês</span>
-          <i class="bi bi-file-earmark-excel chart-export-icon" data-grafico="por_mes_tipocabo" title="Baixar Excel destes dados"></i>
-        </h6>
-        <div class="chart-canvas-box" style="height:240px;"><canvas id="chartTipoCaboPorMes"></canvas></div>
+        <h6>Motivo real dos BDs — Reparo</h6>
+        <div class="chart-canvas-box" style="height:240px;"><canvas id="chartReparoMotivos"></canvas></div>
       </div>
     </div>
   </div>
 
   <div class="row g-3 mb-3">
-    <div class="col-lg-4 col-md-6">
-      <div class="chart-card">
-        <h6 class="d-flex justify-content-between align-items-center">
-          <span>Total por Executado Por</span>
-          <i class="bi bi-file-earmark-excel chart-export-icon" data-grafico="por_executado_por" title="Baixar Excel destes dados"></i>
-        </h6>
-        <div class="chart-canvas-box"><canvas id="chartExecutadoPorAnalise"></canvas></div>
-      </div>
-    </div>
-    <div class="col-lg-4 col-md-6">
-      <div class="chart-card">
-        <h6 class="d-flex justify-content-between align-items-center">
-          <span>Total por Status</span>
-          <i class="bi bi-file-earmark-excel chart-export-icon" data-grafico="por_status" title="Baixar Excel destes dados"></i>
-        </h6>
-        <div class="chart-canvas-box"><canvas id="chartStatusAnalise"></canvas></div>
-      </div>
-    </div>
-    <div class="col-lg-4 col-md-6">
-      <div class="chart-card">
-        <h6 class="d-flex justify-content-between align-items-center">
-          <span>Drafts Criados por Mês</span>
-          <i class="bi bi-file-earmark-excel chart-export-icon" data-grafico="drafts_por_mes" title="Baixar Excel destes dados"></i>
-        </h6>
-        <div class="chart-canvas-box"><canvas id="chartDraftsPorMes"></canvas></div>
-      </div>
-    </div>
+    <div class="col-xl-7"><article class="rb-card dashboard-summary-card"><div class="dashboard-card-title"><div><h2>Backlog — resumo por carteira</h2><small>Retrato atual da base compartilhada</small></div></div><div class="rb-table-wrap"><table class="rb-table"><thead><tr><th>Carteira</th><th>Quantidade</th><th>Situação</th></tr></thead><tbody id="dashboardBacklogBody"><tr><td colspan="3">Carregando...</td></tr></tbody></table></div></article></div>
+    <div class="col-xl-5"><div class="chart-card"><h6>Total de RFS no período</h6><div class="chart-canvas-box" style="height:240px"><canvas id="chartRfsMes"></canvas></div></div></div>
   </div>
+
+  <details class="rb-card dashboard-toggle mb-3" open>
+    <summary><span><i class="bi bi-graph-up-arrow"></i> Analítico de BDs</span><small>clique para recolher</small></summary>
+    <div class="dashboard-toggle-body">
+      <div class="row g-3 mb-3">
+        <div class="col-xl-4"><div class="chart-card shadow-none"><h6>BDs abertos por mês</h6><div class="chart-canvas-box" style="height:230px"><canvas id="chartAnaliticoBds"></canvas></div></div></div>
+        <div class="col-xl-4"><article class="dashboard-mini-table"><h3>Armários críticos</h3><div id="analiticoArmarios"></div></article></div>
+        <div class="col-xl-4"><article class="dashboard-mini-table"><h3>ERBs críticas</h3><div id="analiticoErbs"></div></article></div>
+      </div>
+      <div class="row g-3">
+        <div class="col-xl-6"><article class="dashboard-mini-table"><h3>R30 tratativas por LP15</h3><div id="analiticoR30"></div></article></div>
+        <div class="col-xl-6"><article class="dashboard-mini-table"><h3>Clientes críticos — últimos 30, 15 e 7 dias</h3><div id="analiticoClientesCriticos"></div></article></div>
+      </div>
+    </div>
+  </details>
 
 </main>
 </div>
@@ -185,8 +173,9 @@
 <div id="alertContainer" class="alert-container"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="{{ url_for('static', filename='js/analises.js') }}?v=fechamento-dia-util-1"></script>
+<script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}?v=4.4.1"></script>
+<script src="{{ url_for('static', filename='js/multi-select.js') }}?v=multi-1"></script>
+<script src="{{ url_for('static', filename='js/analises.js') }}?v=dashboard-executivo-1"></script>
 <script src="{{ url_for('static', filename='js/app-controls.js') }}?v=encerrar-1"></script>
 </body>
 </html>

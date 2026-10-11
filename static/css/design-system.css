@@ -28,3 +28,22 @@ body{margin:0;background:var(--rb-bg);color:var(--rb-text);font-family:"Segoe UI
 @media(max-width:900px){.rb-shell{display:block}.rb-sidebar{height:58px;width:100%;padding:7px 10px;position:sticky;display:flex;flex-direction:row;align-items:center}.rb-brand{display:block;padding:0 10px;font-size:0}.rb-brand::after{content:"RB";font-size:17px}.rb-nav{display:flex;flex:1;gap:2px;overflow-x:auto}.rb-nav a{padding:8px}.rb-topbar{position:static;min-height:64px;flex-wrap:wrap}.rb-title{min-width:0}.rb-source{order:3;width:100%;max-width:none}.rb-toolbar{margin-left:auto}.rb-page{padding:12px}.rb-btn .rb-btn-label{display:none}}
 @media(max-width:900px){.rb-top-search{order:3;max-width:none;min-width:100%;width:100%}}
 @media(max-width:620px){.rb-title p{display:none}.rb-topbar{gap:8px}.rb-page{padding:10px}.rb-btn{padding:0 10px}.rb-btn-primary .rb-btn-label{display:none}}
+
+/* Combobox de filtros com múltipla seleção. */
+.rb-multi-native{position:absolute!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important}
+.rb-multi{position:relative;min-width:0;font-size:11.5px}
+.rb-multi-button{width:100%;height:34px;padding:0 9px;border:1px solid #d8e0e9;border-radius:7px;background:#fff;color:#35485d;display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left}
+.rb-multi-button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.rb-multi-button i{font-size:10px;color:#718096;transition:transform .16s ease}
+.rb-multi.open .rb-multi-button{border-color:#6ea1ff;box-shadow:0 0 0 2px rgba(36,107,253,.12)}.rb-multi.open .rb-multi-button i{transform:rotate(180deg)}
+.rb-multi-panel{display:none;position:absolute;z-index:1080;top:calc(100% + 4px);left:0;min-width:100%;max-width:320px;max-height:240px;overflow:auto;padding:6px;background:#fff;border:1px solid #d8e0e9;border-radius:8px;box-shadow:0 12px 28px rgba(29,48,71,.18)}
+.rb-multi.open .rb-multi-panel{display:block}.rb-multi-option{display:flex;align-items:center;gap:8px;min-height:30px;margin:0;padding:5px 7px;border-radius:5px;color:#35485d;cursor:pointer;white-space:nowrap}
+.rb-multi-option:hover{background:#f1f5fa}.rb-multi-option input{width:15px;height:15px;margin:0;accent-color:var(--rb-blue)}.rb-multi-empty{padding:8px;color:var(--rb-muted)}
+
+/* Dashboard executivo. */
+.dashboard-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.dashboard-kpis .rb-kpi{min-height:88px}.dashboard-kpis .rb-kpi small{display:block;color:var(--rb-muted);font-size:9px;margin-top:3px}
+.dashboard-summary-card{height:100%;overflow:hidden}.dashboard-card-title{padding:15px 16px;border-bottom:1px solid var(--rb-line)}.dashboard-card-title h2{margin:0;font-size:13px}.dashboard-card-title small{color:var(--rb-muted);font-size:10px}
+.dashboard-toggle{overflow:hidden}.dashboard-toggle summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 17px;cursor:pointer;list-style:none;font-size:13px;font-weight:750}.dashboard-toggle summary::-webkit-details-marker{display:none}.dashboard-toggle summary small{color:var(--rb-muted);font-size:10px;font-weight:500}.dashboard-toggle-body{padding:0 16px 16px;border-top:1px solid var(--rb-line)}
+.dashboard-mini-table{height:100%;padding:14px;border:1px solid var(--rb-line);border-radius:10px;background:#fff}.dashboard-mini-table h3{margin:0 0 10px;font-size:12px}.dashboard-empty{margin:22px 0;text-align:center;color:var(--rb-muted);font-size:11px}
+@media(max-width:1450px){.dashboard-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:900px){.dashboard-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.dashboard-kpis{grid-template-columns:1fr}}

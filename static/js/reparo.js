@@ -13,8 +13,8 @@ let DATA = [];
 let DASHBOARD = {};
 let FORM_OPTIONS = {};
 let view = "dashboard";
-let filters = {status:"",uf:"",eps:"",tecnologia:"",busca:"",de:"",ate:""};
-let dashboardFilters = {tecnologia:"",de:"",ate:""};
+let filters = {status:[],uf:[],eps:[],tecnologia:[],busca:"",de:"",ate:""};
+let dashboardFilters = {tecnologia:[],de:"",ate:""};
 let sortCol = "DATA_ABERTURA", sortDir = "desc";
 let page = 1, pageSize = 25;
 
@@ -88,15 +88,16 @@ function normStatus(s){
   return s ? s[0].toUpperCase()+s.slice(1) : "";
 }
 function statusClass(s){ s=(s||"").toLowerCase(); if(s.includes("enc"))return "encerrado"; if(s.includes("and"))return "andamento"; return "aberto"; }
+function includesFilter(selected,value,normalize=(item)=>String(item||"")){return !selected?.length||selected.map(normalize).includes(normalize(value));}
 function fmtNum(n){ const v=parseFloat(n); return isNaN(v)?"—":v.toLocaleString("pt-BR",{maximumFractionDigits:2}); }
 function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),2400); }
 
 function filtered(){
   return DATA.filter(r=>{
-    if(filters.status && normStatus(r.STATUS)!==filters.status) return false;
-    if(filters.uf && r.UF!==filters.uf) return false;
-    if(filters.eps && r.EPS!==filters.eps) return false;
-    if(filters.tecnologia && r.TECNOLOGIA!==filters.tecnologia) return false;
+    if(!includesFilter(filters.status,normStatus(r.STATUS),normStatus)) return false;
+    if(!includesFilter(filters.uf,r.UF)) return false;
+    if(!includesFilter(filters.eps,r.EPS)) return false;
+    if(!includesFilter(filters.tecnologia,r.TECNOLOGIA)) return false;
     if(filters.de && r.DATA_ABERTURA && r.DATA_ABERTURA < filters.de) return false;
     if(filters.ate && r.DATA_ABERTURA && r.DATA_ABERTURA > filters.ate) return false;
     if(filters.busca){
@@ -138,6 +139,7 @@ function render(){
   const m = document.getElementById("main");
   if(view==="dashboard") m.innerHTML = renderDashboard();
   else m.innerHTML = renderListagem();
+  window.rbMultiSelect?.init(m);
   wire();
   if(view==="dashboard") drawCharts();
 }
@@ -160,7 +162,7 @@ function renderDashboard(){
   <div class="dashboard-filters">
     <div><label for="dashDe">Data de abertura — de</label><input type="date" id="dashDe" value="${dashboardFilters.de}"></div>
     <div><label for="dashAte">Data de abertura — até</label><input type="date" id="dashAte" value="${dashboardFilters.ate}"></div>
-    <div><label for="dashTec">Tecnologia</label><select id="dashTec"><option value="">Todas</option>${uniq("TECNOLOGIA").map(value=>`<option value="${esc(value)}" ${dashboardFilters.tecnologia===value?"selected":""}>${esc(value)}</option>`).join("")}</select></div>
+    <div><label for="dashTec">Tecnologia</label><select id="dashTec" data-multi-select data-all-label="Todas"><option value="">Todas</option>${uniq("TECNOLOGIA").map(value=>`<option value="${esc(value)}" ${dashboardFilters.tecnologia.includes(value)?"selected":""}>${esc(value)}</option>`).join("")}</select></div>
     <button class="btn primary" id="applyDashboardFilters"><i class="bi bi-funnel"></i> Aplicar filtros</button>
     <button class="btn" id="clearDashboardFilters"><i class="bi bi-x-circle"></i> Limpar</button>
   </div>
@@ -230,7 +232,7 @@ function renderListagem(){
   const pages = Math.max(1, Math.ceil(rows.length/pageSize));
   page = Math.min(page, pages);
   const pageRows = rows.slice((page-1)*pageSize, page*pageSize);
-  const opt = (arr)=>arr.map(v=>`<option value="${v}">${v}</option>`).join("");
+  const opt = (arr,selected=[])=>arr.map(v=>`<option value="${esc(v)}" ${selected.includes(v)?"selected":""}>${esc(v)}</option>`).join("");
   return `
   <div class="topline"><div><h1>Listagem</h1><p>${rows.length} registro(s) encontrados</p></div>
     <div class="actions">
@@ -240,10 +242,10 @@ function renderListagem(){
     </div></div>
   <div class="filters">
     <input type="text" id="fBusca" placeholder="Buscar cliente, reclamação, ID..." value="${filters.busca}">
-    <select id="fStatus"><option value="">Status</option>${opt(["Aberto","Em Andamento","Encerrado"])}</select>
-    <select id="fUf"><option value="">UF</option>${opt(uniq("UF"))}</select>
-    <select id="fEps"><option value="">EPS</option>${opt(uniq("EPS"))}</select>
-    <select id="fTec"><option value="">Tecnologia</option>${opt(uniq("TECNOLOGIA"))}</select>
+    <select id="fStatus" data-multi-select data-all-label="Status">${opt(["Aberto","Em Andamento","Encerrado"],filters.status)}</select>
+    <select id="fUf" data-multi-select data-all-label="UF">${opt(uniq("UF"),filters.uf)}</select>
+    <select id="fEps" data-multi-select data-all-label="EPS">${opt(uniq("EPS"),filters.eps)}</select>
+    <select id="fTec" data-multi-select data-all-label="Tecnologia">${opt(uniq("TECNOLOGIA"),filters.tecnologia)}</select>
     <input type="date" id="fDe" title="Data abertura — de" value="${filters.de}">
     <input type="date" id="fAte" title="Data abertura — até" value="${filters.ate}">
   </div>
@@ -331,21 +333,21 @@ function wire(){
       dashboardFilters={
         de:document.getElementById("dashDe").value,
         ate:document.getElementById("dashAte").value,
-        tecnologia:document.getElementById("dashTec").value,
+        tecnologia:window.rbMultiSelect?.values("dashTec")||[],
       };
       try{await loadDashboardData();render();}catch(error){alert(error.message);}
     };
     document.getElementById("clearDashboardFilters").onclick=async()=>{
-      dashboardFilters={tecnologia:"",de:"",ate:""};
+      dashboardFilters={tecnologia:[],de:"",ate:""};
       try{await loadDashboardData();render();}catch(error){alert(error.message);}
     };
   }
   if(view==="listagem"){
     document.getElementById("fBusca").oninput=e=>{ filters.busca=e.target.value; page=1; render(); };
-    document.getElementById("fStatus").onchange=e=>{ filters.status=e.target.value; page=1; render(); };
-    document.getElementById("fUf").onchange=e=>{ filters.uf=e.target.value; page=1; render(); };
-    document.getElementById("fEps").onchange=e=>{ filters.eps=e.target.value; page=1; render(); };
-    document.getElementById("fTec").onchange=e=>{ filters.tecnologia=e.target.value; page=1; render(); };
+    document.getElementById("fStatus").onchange=()=>{ filters.status=window.rbMultiSelect.values("fStatus"); page=1; render(); };
+    document.getElementById("fUf").onchange=()=>{ filters.uf=window.rbMultiSelect.values("fUf"); page=1; render(); };
+    document.getElementById("fEps").onchange=()=>{ filters.eps=window.rbMultiSelect.values("fEps"); page=1; render(); };
+    document.getElementById("fTec").onchange=()=>{ filters.tecnologia=window.rbMultiSelect.values("fTec"); page=1; render(); };
     document.getElementById("fDe").onchange=e=>{ filters.de=e.target.value; page=1; render(); };
     document.getElementById("fAte").onchange=e=>{ filters.ate=e.target.value; page=1; render(); };
     document.getElementById("exportFiltered").onclick=()=>{ window.location.href="/api/reparo/export?"+serverQuery(); };

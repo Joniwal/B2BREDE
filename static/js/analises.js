@@ -84,11 +84,32 @@ const analiseState = {
   charts: {},
 };
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   popularSelectAno();
   bindEventosAnalise();
+  await carregarOpcoesDashboard();
   carregarAnalise();
 });
+
+async function carregarOpcoesDashboard() {
+  try {
+    const response = await fetch("/api/analytics/options");
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) throw new Error(payload.error || "Erro ao carregar filtros.");
+    const mapping = [
+      ["fTecnologiaAnalise", payload.data.tecnologias || []],
+      ["fEpsAnalise", payload.data.eps || []],
+      ["fCarteiraAnalise", payload.data.carteiras || []],
+    ];
+    mapping.forEach(([id, values]) => {
+      const select = document.getElementById(id);
+      select.innerHTML = '<option value="">Todas</option>' + values.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");
+    });
+    window.rbMultiSelect?.init(document);
+  } catch (error) {
+    showAlert(error.message || "Não foi possível carregar os filtros executivos.", "warning");
+  }
+}
 
 function popularSelectAno() {
   const select = document.getElementById("fAno");
@@ -105,6 +126,7 @@ function bindEventosAnalise() {
     document.getElementById("fMes").value = "";
     document.getElementById("fDataInicioAnalise").value = "";
     document.getElementById("fDataFimAnalise").value = "";
+    ["fTecnologiaAnalise", "fEpsAnalise", "fCarteiraAnalise"].forEach(id => window.rbMultiSelect?.clear(id));
     carregarAnalise();
   });
 
@@ -168,6 +190,9 @@ function coletarFiltrosPeriodo() {
   const mes = document.getElementById("fMes").value;
   const dataInicio = document.getElementById("fDataInicioAnalise").value;
   const dataFim = document.getElementById("fDataFimAnalise").value;
+  const tecnologias = window.rbMultiSelect?.values("fTecnologiaAnalise") || [];
+  const eps = window.rbMultiSelect?.values("fEpsAnalise") || [];
+  const carteiras = window.rbMultiSelect?.values("fCarteiraAnalise") || [];
 
   const params = new URLSearchParams();
   // Um intervalo de datas tem prioridade sobre ano/mês (mesma regra do backend).
@@ -178,6 +203,9 @@ function coletarFiltrosPeriodo() {
     if (ano) params.append("ano", ano);
     if (mes) params.append("mes", mes);
   }
+  if (tecnologias.length) params.append("tecnologia", tecnologias.join(","));
+  if (eps.length) params.append("eps", eps.join(","));
+  if (carteiras.length) params.append("carteira", carteiras.join(","));
   return params;
 }
 
@@ -242,19 +270,51 @@ function atualizarResumoPeriodo() {
 }
 
 function renderizarAnalise(data) {
-  document.getElementById("kpiTotalPeriodo").textContent = data.total_registros_periodo ?? 0;
-  const clienteTop = data.cliente_top || {};
-  document.getElementById("kpiClienteTop").textContent = clienteTop.total
-    ? `${clienteTop.cliente} (${clienteTop.total})`
-    : "—";
+  const kpis = data.kpis_executivos || {};
+  document.getElementById("kpiAtivacoes").textContent = kpis.ativacoes ?? 0;
+  document.getElementById("kpiRedeConcluidas").textContent = kpis.rede_concluidas ?? 0;
+  document.getElementById("kpiQualidadeConcluidas").textContent = kpis.qualidade_concluidas ?? 0;
+  document.getElementById("kpiRfsMes").textContent = kpis.rfs ?? 0;
+  document.getElementById("kpiTmrAnalitico").textContent = Number(kpis.tmr_analitico || 0).toLocaleString("pt-BR", {maximumFractionDigits: 2});
 
   renderizarFechamentoGeral(data.fechamento_geral);
   renderLineChartAnalise("chartConcluidosTimeline", data.concluidos_timeline, "#59a869");
-  renderGroupedBarChart("chartMetragemMesTecnologia", data.metragem_por_mes_tecnologia);
-  renderGroupedBarChart("chartTipoCaboPorMes", data.por_mes_tipocabo);
-  renderBarChartAnalise("chartExecutadoPorAnalise", data.por_executado_por, "#f0913e");
-  renderBarChartAnalise("chartStatusAnalise", data.por_status, "#6c5ce7");
   renderBarChartAnalise("chartDraftsPorMes", data.drafts_por_mes, "#3d95c4");
+  renderBarChartAnalise("chartReparoMotivos", normalizarSerie(data.reparo_motivos), "#805ad5");
+  renderLineChartAnalise("chartRfsMes", normalizarSerie(data.rfs_mes), "#e69032");
+  renderLineChartAnalise("chartAnaliticoBds", normalizarSerie(data.analitico?.bds_por_mes), "#246bfd");
+  renderBacklogResumo(data.backlog_resumo || []);
+  renderAnalitico(data.analitico || {});
+  renderAvisosFontes(data.avisos_fontes || []);
+}
+
+function normalizarSerie(source) {
+  return { labels: source?.labels || [], data: source?.data || source?.values || [] };
+}
+
+function renderAvisosFontes(warnings) {
+  const container = document.getElementById("dashboardSourceWarnings");
+  container.innerHTML = warnings.length
+    ? `<div class="alert alert-warning py-2 mb-0"><strong>Algumas fontes não foram carregadas:</strong> ${warnings.map(item => `${escapeHtml(item.fonte)} — ${escapeHtml(item.mensagem)}`).join(" | ")}</div>`
+    : "";
+}
+
+function renderBacklogResumo(items) {
+  const body = document.getElementById("dashboardBacklogBody");
+  body.innerHTML = items.length ? items.map(item => `<tr><td>${escapeHtml(item.nome)}</td><td>${Number(item.quantidade) || 0}</td><td><span class="rb-pill ${item.nivel === "ok" ? "ok" : "critical"}">${item.nivel === "ok" ? "Adequado" : "Atenção"}</span></td></tr>`).join("") : '<tr><td colspan="3" class="text-muted">Sem registros.</td></tr>';
+}
+
+function miniTable(headers, rows) {
+  if (!rows.length) return '<p class="dashboard-empty">Sem ocorrências no período.</p>';
+  return `<div class="rb-table-wrap"><table class="rb-table"><thead><tr>${headers.map(item => `<th>${escapeHtml(item)}</th>`).join("")}</tr></thead><tbody>${rows.map(row => `<tr>${row.map(value => `<td title="${escapeHtml(value)}">${escapeHtml(value)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+}
+
+function renderAnalitico(data) {
+  document.getElementById("analiticoArmarios").innerHTML = miniTable(["Armário", "Quantidade"], (data.armarios_criticos || []).map(item => [item.nome, item.quantidade]));
+  document.getElementById("analiticoErbs").innerHTML = miniTable(["ERB", "Quantidade"], (data.erbs_criticas || []).map(item => [item.nome, item.quantidade]));
+  document.getElementById("analiticoR30").innerHTML = miniTable(["LP15", "Cliente", "Repetições"], (data.r30_tratativas || []).map(item => [item.lp15, item.cliente || "—", item.quantidade]));
+  const criticalRows = (data.clientes_criticos || []).flatMap(group => (group.itens || []).map(item => [`${group.dias} dias`, item.cliente, item.quantidade]));
+  document.getElementById("analiticoClientesCriticos").innerHTML = miniTable(["Janela", "Cliente", "Quantidade"], criticalRows);
 }
 
 function formatarDataIso(iso) {
@@ -326,7 +386,9 @@ function destruirGrafico(canvasId) {
 
 function renderBarChartAnalise(canvasId, dataset, color) {
   destruirGrafico(canvasId);
-  const ctx = document.getElementById(canvasId).getContext("2d");
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
   analiseState.charts[canvasId] = new Chart(ctx, {
     type: "bar",
     data: {
@@ -348,7 +410,9 @@ function renderBarChartAnalise(canvasId, dataset, color) {
 
 function renderLineChartAnalise(canvasId, dataset, color) {
   destruirGrafico(canvasId);
-  const ctx = document.getElementById(canvasId).getContext("2d");
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
   analiseState.charts[canvasId] = new Chart(ctx, {
     type: "line",
     data: {

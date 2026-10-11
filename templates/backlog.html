@@ -28,9 +28,9 @@
         <div class="rb-section-head"><div><h2><i class="bi bi-funnel"></i> Filtros</h2><p>Use os campos abaixo para refinar os indicadores e a listagem.</p></div><button class="backlog-collapse" id="btnBacklogCollapse" type="button" aria-expanded="true" title="Recolher filtros"><i class="bi bi-chevron-up"></i></button></div>
         <div class="backlog-filter-body" id="backlogFilterBody">
           <div class="backlog-field wide"><label for="blQ">Busca</label><input id="blQ" type="search" placeholder="Pedido, ID, cliente ou cidade..."></div>
-          <div class="backlog-field"><label for="blCarteira">Carteira</label><select id="blCarteira"><option value="">Todas</option></select></div>
-          <div class="backlog-field small"><label for="blUf">UF</label><select id="blUf"><option value="">Todas</option></select></div>
-          <div class="backlog-field"><label for="blTecnologia">Tecnologia</label><select id="blTecnologia"><option value="">Todas</option></select></div>
+          <div class="backlog-field"><label for="blCarteira">Carteira</label><select id="blCarteira" data-multi-select data-all-label="Todas"><option value="">Todas</option></select></div>
+          <div class="backlog-field small"><label for="blUf">UF</label><select id="blUf" data-multi-select data-all-label="Todas"><option value="">Todas</option></select></div>
+          <div class="backlog-field"><label for="blTecnologia">Tecnologia</label><select id="blTecnologia" data-multi-select data-all-label="Todas"><option value="">Todas</option></select></div>
           <div class="backlog-field"><label for="blDataInicio">Entrada — de</label><input id="blDataInicio" type="date"></div>
           <div class="backlog-field"><label for="blDataFim">Entrada — até</label><input id="blDataFim" type="date"></div>
           <button class="rb-btn rb-btn-primary" id="btnBacklogApply" type="button">Aplicar</button>
@@ -42,13 +42,12 @@
         <article class="rb-kpi" style="--rb-tone:#246bfd"><div class="rb-kpi-icon"><i class="bi bi-inboxes"></i></div><div><span class="rb-kpi-label">Total no backlog</span><strong class="rb-kpi-value" id="blKpiTotal">0</strong></div></article>
         <article class="rb-kpi" style="--rb-tone:#1ba878"><div class="rb-kpi-icon"><i class="bi bi-file-earmark-check"></i></div><div><span class="rb-kpi-label">Com RFS</span><strong class="rb-kpi-value" id="blKpiRfs">0</strong></div></article>
         <article class="rb-kpi" style="--rb-tone:#805ad5"><div class="rb-kpi-icon"><i class="bi bi-percent"></i></div><div><span class="rb-kpi-label">Índice RFS</span><strong class="rb-kpi-value" id="blKpiIndice">0%</strong></div></article>
-        <article class="rb-kpi" style="--rb-tone:#e69032"><div class="rb-kpi-icon"><i class="bi bi-hourglass-split"></i></div><div><span class="rb-kpi-label">Aging médio</span><strong class="rb-kpi-value" id="blKpiAging">0 dias</strong></div></article>
       </section>
 
       <section class="backlog-overview mb-3">
         <article class="rb-card backlog-wallet-card">
-          <div class="backlog-card-head"><div><h2>Resumo por carteira</h2><small>A situação considera o aging médio: até 15, até 30 e acima de 30 dias.</small></div><span id="blCarteiraTotal" class="rb-pill">0 carteiras</span></div>
-          <div class="rb-table-wrap"><table class="rb-table backlog-wallet-table"><thead><tr><th>Carteira</th><th>Quantidade</th><th>Situação</th><th>Aging médio</th></tr></thead><tbody id="blCarteiraBody"><tr><td colspan="4" class="text-center text-muted py-4">Carregando...</td></tr></tbody></table></div>
+          <div class="backlog-card-head"><div><h2>Resumo por carteira</h2><small>Situação adequada com até 20 atividades; acima disso requer atenção.</small></div><span id="blCarteiraTotal" class="rb-pill">0 carteiras</span></div>
+          <div class="rb-table-wrap"><table class="rb-table backlog-wallet-table"><thead><tr><th>Carteira</th><th>Quantidade</th><th>Situação</th></tr></thead><tbody id="blCarteiraBody"><tr><td colspan="3" class="text-center text-muted py-4">Carregando...</td></tr></tbody></table></div>
         </article>
         <article class="rb-card backlog-chart-card">
           <div class="backlog-card-head"><div><h2>RFS por dia</h2><small>Últimos 30 dias com movimentação no período filtrado</small></div><span id="blLastUpdate" class="rb-pill">—</span></div>
@@ -67,6 +66,7 @@
 <div id="backlogAlert" class="rb-alert-container" aria-live="polite"></div>
 <script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}?v=4.4.1"></script>
 <script src="{{ url_for('static', filename='js/chart-value-labels.js') }}?v=1"></script>
-<script src="{{ url_for('static', filename='js/backlog.js') }}?v=backlog-1"></script>
+<script src="{{ url_for('static', filename='js/multi-select.js') }}?v=multi-1"></script>
+<script src="{{ url_for('static', filename='js/backlog.js') }}?v=multi-filtros-1"></script>
 <script src="{{ url_for('static', filename='js/app-controls.js') }}?v=encerrar-1"></script>
 </body></html>

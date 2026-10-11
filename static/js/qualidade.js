@@ -21,7 +21,7 @@ async function qApi(url, options={}){
 
 function qQuery(extra={}){
   const params=new URLSearchParams();
-  Object.entries({...qualidadeState.filters,...extra}).forEach(([key,value])=>{if(value!==""&&value!==undefined&&value!==null)params.set(key,value);});
+  Object.entries({...qualidadeState.filters,...extra}).forEach(([key,value])=>{if(Array.isArray(value)&&value.length)params.set(key,value.join(","));else if(value!==""&&value!==undefined&&value!==null)params.set(key,value);});
   return params.toString();
 }
 
@@ -38,7 +38,7 @@ function qSetSelect(id,value){
 
 function qCollectFilters(){
   qualidadeState.filters={
-    q:qById("qBusca").value.trim(),status:qById("qStatus").value,tecnologia:qById("qTecnologia").value,
+    q:qById("qBusca").value.trim(),status:window.rbMultiSelect?.values("qStatus")||[],tecnologia:window.rbMultiSelect?.values("qTecnologia")||[],
     dataInicio:qById("qDataInicio").value,dataFim:qById("qDataFim").value,
   };
 }
@@ -155,7 +155,7 @@ async function qDelete(id){
 
 function qBind(){
   qById("btnAplicarQualidade").onclick=()=>{qCollectFilters();qualidadeState.page=1;qLoad().catch(error=>qShowAlert(error.message,"danger"));};
-  qById("btnLimparQualidade").onclick=()=>{["qBusca","qStatus","qTecnologia","qDataInicio","qDataFim"].forEach(id=>qById(id).value="");qualidadeState.filters={};qualidadeState.page=1;qLoad().catch(error=>qShowAlert(error.message,"danger"));};
+  qById("btnLimparQualidade").onclick=()=>{["qBusca","qStatus","qTecnologia","qDataInicio","qDataFim"].forEach(id=>{const field=qById(id);if(field.multiple&&window.rbMultiSelect)window.rbMultiSelect.clear(field);else field.value="";});qualidadeState.filters={};qualidadeState.page=1;qLoad().catch(error=>qShowAlert(error.message,"danger"));};
   qById("btnAtualizarQualidade").onclick=()=>qLoad().then(()=>qShowAlert("Dados atualizados.")).catch(error=>qShowAlert(error.message,"danger"));
   qById("btnExportarQualidade").onclick=()=>{window.location.href=`/api/qualidade/export?${qQuery()}`;};qById("btnNovaQualidade").addEventListener("click",qOpenCreate);qById("btnSalvarQualidade").onclick=qSave;
   qById("btnExcluirQualidade").onclick=()=>qDelete(qById("qOriginalId").value);

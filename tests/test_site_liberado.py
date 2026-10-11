@@ -106,7 +106,7 @@ class SiteLiberadoTests(unittest.TestCase):
     def test_page_contains_conditional_site_selector_and_technology_filter(self):
         app = create_app()
         app.config["TESTING"] = True
-        response = app.test_client().get("/")
+        response = app.test_client().get("/rede")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
         self.assertIn('id="siteLiberadoField"', html)
