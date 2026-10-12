@@ -33,12 +33,15 @@ def resolve_period(ano=None, mes=None, data_inicio=None, data_fim=None):
             raise DataClientError("Período inválido.", status_code=400)
         return (end, start) if start > end else (start, end)
     today = date.today()
-    year = int(ano) if ano else today.year
-    if mes:
-        month = int(mes)
-        return date(year, month, 1), date(year, month, monthrange(year, month)[1])
-    if ano:
-        return date(year, 1, 1), date(year, 12, 31)
+    years = [int(item) for item in (ano if isinstance(ano, (list, tuple, set)) else [ano]) if item]
+    months = [int(item) for item in (mes if isinstance(mes, (list, tuple, set)) else [mes]) if item]
+    if years or months:
+        years = years or [today.year]
+        months = months or list(range(1, 13))
+        pairs = sorted((year, month) for year in years for month in months)
+        first_year, first_month = pairs[0]
+        last_year, last_month = pairs[-1]
+        return date(first_year, first_month, 1), date(last_year, last_month, monthrange(last_year, last_month)[1])
     return date(today.year, today.month, 1), date(today.year, today.month, monthrange(today.year, today.month)[1])
 
 
@@ -87,15 +90,16 @@ class DashboardService:
         }
 
     def build(self, *, base, ano=None, mes=None, data_inicio=None, data_fim=None,
-              tecnologias=None, eps=None, carteiras=None):
+              tecnologias=None, eps=None, carteiras=None, network_rows=None):
         start, end = resolve_period(ano, mes, data_inicio, data_fim)
         technologies = tecnologias or []
         selected_tech = {_norm(value) for value in technologies}
         warnings = []
 
-        network_rows, warning = self._safe("Rede", self.data._excel_read_all, [])
-        if warning:
-            warnings.append(warning)
+        if network_rows is None:
+            network_rows, warning = self._safe("Rede", self.data._excel_read_all, [])
+            if warning:
+                warnings.append(warning)
         if selected_tech:
             network_rows = [row for row in network_rows if _norm(row.get("TECNOLOGIA")) in selected_tech]
 
@@ -131,29 +135,33 @@ class DashboardService:
             backlog_filters["tecnologia"] = technologies
         if carteiras:
             backlog_filters["carteira"] = carteiras
-        backlog, warning = self._safe("Backlog", lambda: self.backlog.dashboard(backlog_filters), {"carteiras": []})
-        if warning:
-            warnings.append(warning)
-
-        # O resumo por carteira representa o retrato atual do arquivo; apenas o RFS
-        # é recortado pelo mês/período selecionado.
-        def monthly_rfs():
+        # Uma única leitura alimenta o resumo atual por carteira e o RFS do período.
+        def backlog_bundle():
             _headers, rows = self.backlog._read()
-            if carteiras:
-                rows = self.backlog._filter(rows, {"carteira": carteiras})
-            if technologies:
-                rows = self.backlog._filter(rows, {"tecnologia": technologies})
+            rows = self.backlog._filter(rows, backlog_filters)
+            wallet_counts = Counter(
+                backlog_text(self.backlog._value(row, "Carteira")) or "Não informado"
+                for row in rows
+            )
+            wallets = [
+                {"nome": name, "quantidade": count, "nivel": "ok" if count <= 20 else "critical"}
+                for name, count in sorted(wallet_counts.items(), key=lambda item: (-item[1], item[0].casefold()))
+            ]
             counts = Counter()
             for row in rows:
                 value = backlog_date(self.backlog._value(row, "Data_RFS"))
                 if value and start <= value <= end:
                     counts[value] += 1
             labels = sorted(counts)
-            return {"labels": [item.isoformat() for item in labels], "values": [counts[item] for item in labels], "total": sum(counts.values())}
+            return {
+                "carteiras": wallets,
+                "rfs": {"labels": [item.isoformat() for item in labels], "values": [counts[item] for item in labels], "total": sum(counts.values())},
+            }
 
-        rfs_month, warning = self._safe("Backlog", monthly_rfs, {"labels": [], "values": [], "total": 0})
+        backlog_data, warning = self._safe("Backlog", backlog_bundle, {"carteiras": [], "rfs": {"labels": [], "values": [], "total": 0}})
         if warning:
             warnings.append(warning)
+        rfs_month = backlog_data["rfs"]
 
         analytical, warning = self._safe(
             "Analítico",
@@ -173,7 +181,7 @@ class DashboardService:
                 "tmr_analitico": analytical.get("tmr_medio_horas", 0),
             },
             "reparo_motivos": repair.get("motivos", {"labels": [], "values": []}),
-            "backlog_resumo": backlog.get("carteiras", []),
+            "backlog_resumo": backlog_data.get("carteiras", []),
             "rfs_mes": rfs_month,
             "analitico": analytical,
             "avisos_fontes": warnings,

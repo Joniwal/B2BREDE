@@ -436,10 +436,12 @@ class DataClient:
                     mes_cursor = 1
                     ano_cursor += 1
             return meses_alvo, ini, fim
-        if ano and mes:
-            return [(int(ano), int(mes))], None, None
-        if ano:
-            return [(int(ano), m) for m in range(1, 13)], None, None
+        anos = [int(item) for item in (ano if isinstance(ano, (list, tuple, set)) else [ano]) if item]
+        meses = [int(item) for item in (mes if isinstance(mes, (list, tuple, set)) else [mes]) if item]
+        if anos or meses:
+            anos = anos or [datetime.today().year]
+            meses = meses or list(range(1, 13))
+            return sorted((a, m) for a in anos for m in meses), None, None
         return self._ultimos_n_meses(6), None, None
 
     @staticmethod
@@ -472,17 +474,20 @@ class DataClient:
                 inicio, fim = fim, inicio
             return inicio, fim, False
 
-        if ano and mes:
-            ano_ref, mes_ref = int(ano), int(mes)
-            inicio = date(ano_ref, mes_ref, 1)
-            fim = date(ano_ref, mes_ref, monthrange(ano_ref, mes_ref)[1])
+        anos = [int(item) for item in (ano if isinstance(ano, (list, tuple, set)) else [ano]) if item]
+        meses = [int(item) for item in (mes if isinstance(mes, (list, tuple, set)) else [mes]) if item]
+        if anos and meses:
+            pares = sorted((a, m) for a in anos for m in meses)
+            ano_ini, mes_ini = pares[0]
+            ano_fim, mes_fim = pares[-1]
+            inicio = date(ano_ini, mes_ini, 1)
+            fim = date(ano_fim, mes_fim, monthrange(ano_fim, mes_fim)[1])
             return inicio.isoformat(), fim.isoformat(), False
 
-        if ano:
-            ano_ref = int(ano)
+        if anos:
             return (
-                date(ano_ref, 1, 1).isoformat(),
-                date(ano_ref, 12, 31).isoformat(),
+                date(min(anos), 1, 1).isoformat(),
+                date(max(anos), 12, 31).isoformat(),
                 False,
             )
 
@@ -517,7 +522,7 @@ class DataClient:
 
         return selecionados, inicio, fim, usa_dia_anterior
 
-    def analytics(self, ano=None, mes=None, data_inicio=None, data_fim=None, tecnologias=None):
+    def analytics(self, ano=None, mes=None, data_inicio=None, data_fim=None, tecnologias=None, rows=None):
         """Agregações para a página de Dashboard (/dashboard), com uma
         janela de tempo configurável:
           - data_inicio/data_fim informados -> usa esse intervalo exato
@@ -530,7 +535,7 @@ class DataClient:
         linha do tempo de concluídos, que usa DATACONCLUSAO (mais coerente
         com "quando foi concluído").
         """
-        rows = self._excel_read_all()
+        rows = self._excel_read_all() if rows is None else rows
         tecnologias = tecnologias or []
         if not isinstance(tecnologias, (list, tuple, set)):
             tecnologias = [tecnologias]

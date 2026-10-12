@@ -179,7 +179,7 @@ class AnaliticoClient:
         period_rows = [row for row, opened in dated if opened and (not start or opened >= start) and (not end or opened <= end)]
         by_month = Counter(opened.strftime("%Y-%m") for _row, opened in dated if opened and (not start or opened >= start) and (not end or opened <= end))
 
-        def grouped(field, limit=12, minimum=2):
+        def grouped(field, limit=10, minimum=2):
             counts = Counter(_text(row.get(field)) for row in period_rows if _text(row.get(field)))
             return [
                 {"nome": name, "quantidade": count}
@@ -206,7 +206,7 @@ class AnaliticoClient:
                     continue
                 name = _text(row.get("CLIENTE")) or _text(row.get("LP15")) or "Não informado"
                 counts[name] += 1
-            critical.append({"dias": days, "itens": [{"cliente": name, "quantidade": count} for name, count in counts.most_common()]})
+            critical.append({"dias": days, "itens": [{"cliente": name, "quantidade": count} for name, count in counts.most_common(10)]})
 
         tmrs = []
         for row in period_rows:
@@ -220,7 +220,7 @@ class AnaliticoClient:
             "bds_por_mes": {"labels": months, "values": [by_month[key] for key in months]},
             "armarios_criticos": grouped("ARMARIO"),
             "erbs_criticas": grouped("ERB"),
-            "r30_tratativas": sorted(r30.values(), key=lambda item: (-item["quantidade"], item["lp15"].casefold())),
+            "r30_tratativas": sorted(r30.values(), key=lambda item: (-item["quantidade"], item["lp15"].casefold()))[:10],
             "clientes_criticos": critical,
             "tmr_medio_horas": round(sum(tmrs) / len(tmrs), 2) if tmrs else 0,
             "total_periodo": len(period_rows),

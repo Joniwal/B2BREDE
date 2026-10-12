@@ -47,6 +47,11 @@ def _multi_arg(name):
     return list(dict.fromkeys(values)) or None
 
 
+def _multi_int_arg(name):
+    values = _multi_arg(name)
+    return [int(value) for value in values] if values else None
+
+
 def _parse_pagination_and_filters():
     filters = {
         "cliente": request.args.get("cliente"),
@@ -241,24 +246,24 @@ def get_analytics():
     'mes', ou um intervalo 'dataInicio'/'dataFim' (tem prioridade sobre
     ano/mes); sem nenhum filtro, usa os últimos 6 meses."""
     try:
-        ano_raw = request.args.get("ano")
-        mes_raw = request.args.get("mes")
-        ano = int(ano_raw) if ano_raw else None
-        mes = int(mes_raw) if mes_raw else None
+        ano = _multi_int_arg("ano")
+        mes = _multi_int_arg("mes")
         data_inicio = request.args.get("dataInicio") or None
         data_fim = request.args.get("dataFim") or None
         tecnologias = _multi_arg("tecnologia")
         eps = _multi_arg("eps")
         carteiras = _multi_arg("carteira")
+        network_rows = data_client._excel_read_all()
         base = data_client.analytics(
             ano=ano, mes=mes, data_inicio=data_inicio, data_fim=data_fim,
-            tecnologias=tecnologias,
+            tecnologias=tecnologias, rows=network_rows,
         )
         result = DashboardService(
             data_client, ativacao_client, reparo_client, backlog_client, analitico_client
         ).build(
             base=base, ano=ano, mes=mes, data_inicio=data_inicio, data_fim=data_fim,
             tecnologias=tecnologias, eps=eps, carteiras=carteiras,
+            network_rows=network_rows,
         )
         return jsonify({"ok": True, "data": result})
     except DataClientError as exc:
@@ -289,10 +294,8 @@ def export_analytics():
     página de Dashboard, respeitando o mesmo filtro de período (ano/mes ou
     intervalo de datas)."""
     try:
-        ano_raw = request.args.get("ano")
-        mes_raw = request.args.get("mes")
-        ano = int(ano_raw) if ano_raw else None
-        mes = int(mes_raw) if mes_raw else None
+        ano = _multi_int_arg("ano")
+        mes = _multi_int_arg("mes")
         data_inicio = request.args.get("dataInicio") or None
         data_fim = request.args.get("dataFim") or None
         grafico = request.args.get("grafico", "geral")
@@ -327,10 +330,8 @@ def export_fechamento_geral():
     """Baixa uma cópia da planilha-base contendo somente os registros do
     Fechamento Geral e preservando a Tabela estruturada e sua formatação."""
     try:
-        ano_raw = request.args.get("ano")
-        mes_raw = request.args.get("mes")
-        ano = int(ano_raw) if ano_raw else None
-        mes = int(mes_raw) if mes_raw else None
+        ano = _multi_int_arg("ano")
+        mes = _multi_int_arg("mes")
         data_inicio = request.args.get("dataInicio") or None
         data_fim = request.args.get("dataFim") or None
 

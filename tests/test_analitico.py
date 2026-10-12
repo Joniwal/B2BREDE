@@ -3,7 +3,7 @@ import unittest
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 
 from analitico_client import AnaliticoClient, _hours
 
@@ -55,6 +55,27 @@ class AnaliticoTests(unittest.TestCase):
         self.assertEqual(data["tmr_medio_horas"], 5)
         self.assertEqual(_hours(0.5), 12)
         self.assertEqual(_hours("02:30"), 2.5)
+
+    def test_rankings_are_limited_to_top_ten(self):
+        workbook = load_workbook(self.path)
+        sheet = workbook["ANALITICO"]
+        today = date.today()
+        for index in range(12):
+            for repeat in range(index + 2):
+                sheet.append([
+                    f"EX-{index}-{repeat}", "", f"LP-{index + 10}", "", today, today,
+                    "SUL", "PR", "C", "CURITIBA", f"CLIENTE {index}", "", "",
+                    f"ARM-{index + 10}", f"ERB-{index + 10}", "GPON", "SIM", "NÃO",
+                    2, 0, "SIM",
+                ])
+        workbook.save(self.path)
+        workbook.close()
+
+        data = self.client.dashboard(start=today, end=today)
+        self.assertEqual(len(data["armarios_criticos"]), 10)
+        self.assertEqual(len(data["erbs_criticas"]), 10)
+        self.assertEqual(len(data["r30_tratativas"]), 10)
+        self.assertTrue(all(len(window["itens"]) <= 10 for window in data["clientes_criticos"]))
 
 
 if __name__ == "__main__":

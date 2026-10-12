@@ -82,13 +82,16 @@
 
 const analiseState = {
   charts: {},
+  analitico: {},
 };
 
-document.addEventListener("DOMContentLoaded", async () => {
+document.addEventListener("DOMContentLoaded", () => {
   popularSelectAno();
   bindEventosAnalise();
-  await carregarOpcoesDashboard();
+  // Indicadores e opções são buscados juntos; os cards não ficam esperando
+  // a montagem das listas de filtros vindas das várias planilhas.
   carregarAnalise();
+  carregarOpcoesDashboard();
 });
 
 async function carregarOpcoesDashboard() {
@@ -117,13 +120,14 @@ function popularSelectAno() {
   for (let ano = anoAtual + 1; ano >= anoAtual - 4; ano--) {
     select.appendChild(new Option(ano, ano));
   }
+  window.rbMultiSelect?.init(document);
 }
 
 function bindEventosAnalise() {
   document.getElementById("btnAplicarPeriodo").addEventListener("click", () => carregarAnalise());
   document.getElementById("btnLimparPeriodo").addEventListener("click", () => {
-    document.getElementById("fAno").value = "";
-    document.getElementById("fMes").value = "";
+    window.rbMultiSelect?.clear("fAno");
+    window.rbMultiSelect?.clear("fMes");
     document.getElementById("fDataInicioAnalise").value = "";
     document.getElementById("fDataFimAnalise").value = "";
     ["fTecnologiaAnalise", "fEpsAnalise", "fCarteiraAnalise"].forEach(id => window.rbMultiSelect?.clear(id));
@@ -141,6 +145,8 @@ function bindEventosAnalise() {
 
   document.getElementById("btnExportarFechamento")
     ?.addEventListener("click", baixarExcelFechamentoGeral);
+  document.getElementById("fJanelaClientesCriticos")
+    ?.addEventListener("change", () => renderClientesCriticos(analiseState.analitico.clientes_criticos || []));
 }
 
 async function baixarExcelFechamentoGeral() {
@@ -186,8 +192,8 @@ async function baixarExcelFechamentoGeral() {
 }
 
 function coletarFiltrosPeriodo() {
-  const ano = document.getElementById("fAno").value;
-  const mes = document.getElementById("fMes").value;
+  const anos = window.rbMultiSelect?.values("fAno") || [];
+  const meses = window.rbMultiSelect?.values("fMes") || [];
   const dataInicio = document.getElementById("fDataInicioAnalise").value;
   const dataFim = document.getElementById("fDataFimAnalise").value;
   const tecnologias = window.rbMultiSelect?.values("fTecnologiaAnalise") || [];
@@ -200,8 +206,8 @@ function coletarFiltrosPeriodo() {
     if (dataInicio) params.append("dataInicio", dataInicio);
     if (dataFim) params.append("dataFim", dataFim);
   } else {
-    if (ano) params.append("ano", ano);
-    if (mes) params.append("mes", mes);
+    if (anos.length) params.append("ano", anos.join(","));
+    if (meses.length) params.append("mes", meses.join(","));
   }
   if (tecnologias.length) params.append("tecnologia", tecnologias.join(","));
   if (eps.length) params.append("eps", eps.join(","));
@@ -242,8 +248,8 @@ async function carregarAnalise() {
 
 function atualizarResumoPeriodo() {
   const resumo = document.getElementById("periodoResumo");
-  const ano = document.getElementById("fAno").value;
-  const mes = document.getElementById("fMes").value;
+  const anos = window.rbMultiSelect?.values("fAno") || [];
+  const meses = window.rbMultiSelect?.values("fMes") || [];
   const dataInicio = document.getElementById("fDataInicioAnalise").value;
   const dataFim = document.getElementById("fDataFimAnalise").value;
   const nomesMeses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -260,10 +266,13 @@ function atualizarResumoPeriodo() {
     } else {
       resumo.textContent = `Período: a partir de ${formatar(dataInicio || dataFim)}`;
     }
-  } else if (ano && mes) {
-    resumo.textContent = `Período: ${nomesMeses[parseInt(mes, 10) - 1]} de ${ano}`;
-  } else if (ano) {
-    resumo.textContent = `Período: ano de ${ano} (todos os meses)`;
+  } else if (anos.length && meses.length) {
+    const mesesTexto = meses.map(item => nomesMeses[parseInt(item, 10) - 1]).join(", ");
+    resumo.textContent = `Período: ${mesesTexto} — ${anos.join(", ")}`;
+  } else if (anos.length) {
+    resumo.textContent = `Período: ${anos.join(", ")} (todos os meses)`;
+  } else if (meses.length) {
+    resumo.textContent = `Período: ${meses.map(item => nomesMeses[parseInt(item, 10) - 1]).join(", ")}`;
   } else {
     resumo.textContent = "Período: últimos 6 meses (padrão)";
   }
@@ -310,11 +319,18 @@ function miniTable(headers, rows) {
 }
 
 function renderAnalitico(data) {
+  analiseState.analitico = data;
   document.getElementById("analiticoArmarios").innerHTML = miniTable(["Armário", "Quantidade"], (data.armarios_criticos || []).map(item => [item.nome, item.quantidade]));
   document.getElementById("analiticoErbs").innerHTML = miniTable(["ERB", "Quantidade"], (data.erbs_criticas || []).map(item => [item.nome, item.quantidade]));
   document.getElementById("analiticoR30").innerHTML = miniTable(["LP15", "Cliente", "Repetições"], (data.r30_tratativas || []).map(item => [item.lp15, item.cliente || "—", item.quantidade]));
-  const criticalRows = (data.clientes_criticos || []).flatMap(group => (group.itens || []).map(item => [`${group.dias} dias`, item.cliente, item.quantidade]));
-  document.getElementById("analiticoClientesCriticos").innerHTML = miniTable(["Janela", "Cliente", "Quantidade"], criticalRows);
+  renderClientesCriticos(data.clientes_criticos || []);
+}
+
+function renderClientesCriticos(groups) {
+  const dias = Number(document.getElementById("fJanelaClientesCriticos")?.value || 30);
+  const group = groups.find(item => Number(item.dias) === dias);
+  const rows = (group?.itens || []).map(item => [item.cliente, item.quantidade]);
+  document.getElementById("analiticoClientesCriticos").innerHTML = miniTable(["Cliente", "Quantidade"], rows);
 }
 
 function formatarDataIso(iso) {

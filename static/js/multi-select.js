@@ -23,12 +23,12 @@
 
   function renderOptions(instance) {
     const options = Array.from(instance.select.options).filter((option) => option.value);
-    instance.panel.replaceChildren();
+    instance.options.replaceChildren();
     if (!options.length) {
       const empty = document.createElement("div");
       empty.className = "rb-multi-empty";
       empty.textContent = "Nenhuma opção disponível";
-      instance.panel.appendChild(empty);
+      instance.options.appendChild(empty);
     }
     options.forEach((option) => {
       const label = document.createElement("label");
@@ -40,7 +40,7 @@
       const text = document.createElement("span");
       text.textContent = option.textContent;
       label.append(checkbox, text);
-      instance.panel.appendChild(label);
+      instance.options.appendChild(label);
       checkbox.addEventListener("change", () => {
         option.selected = checkbox.checked;
         update(instance);
@@ -56,9 +56,9 @@
     select.classList.add("rb-multi-native");
     const root = document.createElement("div");
     root.className = "rb-multi";
-    root.innerHTML = '<button class="rb-multi-button" type="button" aria-haspopup="listbox" aria-expanded="false"><span></span><i class="bi bi-chevron-down" aria-hidden="true"></i></button><div class="rb-multi-panel" role="listbox" aria-multiselectable="true"></div>';
+    root.innerHTML = '<button class="rb-multi-button" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Abrir filtro de múltipla escolha"><span></span><i class="bi bi-list-check" aria-hidden="true"></i></button><div class="rb-multi-panel" role="listbox" aria-multiselectable="true"><div class="rb-multi-head"><strong>Marque uma ou mais</strong><button type="button" class="rb-multi-clear">Limpar</button></div><div class="rb-multi-options"></div></div>';
     select.insertAdjacentElement("afterend", root);
-    const instance = { select, root, button: root.querySelector("button"), panel: root.querySelector(".rb-multi-panel") };
+    const instance = { select, root, button: root.querySelector(".rb-multi-button"), panel: root.querySelector(".rb-multi-panel"), options: root.querySelector(".rb-multi-options") };
     instances.set(select, instance);
     instance.button.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -67,6 +67,12 @@
       instance.button.setAttribute("aria-expanded", String(root.classList.contains("open")));
     });
     instance.panel.addEventListener("click", (event) => event.stopPropagation());
+    root.querySelector(".rb-multi-clear").addEventListener("click", () => {
+      Array.from(select.options).forEach((option) => { option.selected = false; });
+      update(instance);
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    select.addEventListener("change", () => update(instance));
     new MutationObserver(() => renderOptions(instance)).observe(select, { childList: true });
     renderOptions(instance);
     return instance;

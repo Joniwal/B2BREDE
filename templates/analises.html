@@ -13,7 +13,7 @@
 <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 <link href="{{ url_for('static', filename='css/styles.css') }}?v=fechamento-export-1" rel="stylesheet">
-<link href="{{ url_for('static', filename='css/design-system.css') }}?v=dashboard-executivo-1" rel="stylesheet">
+<link href="{{ url_for('static', filename='css/design-system.css') }}?v=dashboard-executivo-3" rel="stylesheet">
 </head>
 <body>
 <div class="rb-shell">
@@ -24,17 +24,17 @@
 <main class="rb-page">
 
   <!-- FILTRO DE PERÍODO -->
-  <div class="table-card p-3 mb-3">
+  <div class="table-card dashboard-filter-card p-3 mb-3">
     <div class="d-flex flex-wrap align-items-end gap-2">
       <div>
-        <label class="form-label d-block mb-1">Ano</label>
-        <select id="fAno" class="form-select form-select-sm" style="width:120px;">
+        <label class="form-label d-block mb-1">Ano <small class="dashboard-multi-hint">múltipla</small></label>
+        <select id="fAno" data-multi-select data-all-label="Todos" style="width:130px;">
           <option value="">Últimos 6 meses</option>
         </select>
       </div>
       <div>
-        <label class="form-label d-block mb-1">Mês</label>
-        <select id="fMes" class="form-select form-select-sm" style="width:150px;">
+        <label class="form-label d-block mb-1">Mês <small class="dashboard-multi-hint">múltipla</small></label>
+        <select id="fMes" data-multi-select data-all-label="Todos" style="width:150px;">
           <option value="">Todos os meses</option>
           <option value="1">Janeiro</option>
           <option value="2">Fevereiro</option>
@@ -60,15 +60,15 @@
         <input type="date" id="fDataFimAnalise" class="form-control form-control-sm" style="width:150px;">
       </div>
       <div>
-        <label class="form-label d-block mb-1">Tecnologia</label>
+        <label class="form-label d-block mb-1">Tecnologia <small class="dashboard-multi-hint">múltipla</small></label>
         <select id="fTecnologiaAnalise" data-multi-select data-all-label="Todas" style="width:145px;"><option value="">Todas</option></select>
       </div>
       <div>
-        <label class="form-label d-block mb-1">EPS</label>
+        <label class="form-label d-block mb-1">EPS <small class="dashboard-multi-hint">múltipla</small></label>
         <select id="fEpsAnalise" data-multi-select data-all-label="Todas" style="width:135px;"><option value="">Todas</option></select>
       </div>
       <div>
-        <label class="form-label d-block mb-1">Carteira</label>
+        <label class="form-label d-block mb-1">Carteira <small class="dashboard-multi-hint">múltipla</small></label>
         <select id="fCarteiraAnalise" data-multi-select data-all-label="Todas" style="width:145px;"><option value="">Todas</option></select>
       </div>
       <button class="btn btn-accent btn-sm" id="btnAplicarPeriodo">
@@ -161,7 +161,7 @@
       </div>
       <div class="row g-3">
         <div class="col-xl-6"><article class="dashboard-mini-table"><h3>R30 tratativas por LP15</h3><div id="analiticoR30"></div></article></div>
-        <div class="col-xl-6"><article class="dashboard-mini-table"><h3>Clientes críticos — últimos 30, 15 e 7 dias</h3><div id="analiticoClientesCriticos"></div></article></div>
+        <div class="col-xl-6"><article class="dashboard-mini-table"><div class="dashboard-mini-head"><h3>Clientes críticos</h3><label for="fJanelaClientesCriticos"><span>Período</span><select id="fJanelaClientesCriticos" class="form-select form-select-sm"><option value="7">7 dias</option><option value="15">15 dias</option><option value="30" selected>30 dias</option></select></label></div><div id="analiticoClientesCriticos"></div></article></div>
       </div>
     </div>
   </details>
@@ -174,8 +174,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 <script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}?v=4.4.1"></script>
-<script src="{{ url_for('static', filename='js/multi-select.js') }}?v=multi-1"></script>
-<script src="{{ url_for('static', filename='js/analises.js') }}?v=dashboard-executivo-1"></script>
+<script src="{{ url_for('static', filename='js/multi-select.js') }}?v=multi-2"></script>
+<script src="{{ url_for('static', filename='js/analises.js') }}?v=dashboard-executivo-4"></script>
 <script src="{{ url_for('static', filename='js/app-controls.js') }}?v=encerrar-1"></script>
 </body>
 </html>
