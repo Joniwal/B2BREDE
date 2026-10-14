@@ -19,6 +19,7 @@ from pathlib import Path
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill
 from openpyxl.utils.cell import range_boundaries
+from openpyxl.utils.datetime import from_excel
 
 from excel_client import DataClient, DataClientError, _localizar_excel_no_onedrive
 
@@ -106,8 +107,17 @@ def _parse_date(value, *, required=False, label="Data") -> date | None:
         return value.date()
     if isinstance(value, date):
         return value
-    raw = _text(value)
-    for pattern in ("%Y-%m-%d", "%d/%m/%Y"):
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        try:
+            parsed = from_excel(value)
+            if isinstance(parsed, datetime):
+                return parsed.date()
+            if isinstance(parsed, date):
+                return parsed
+        except (TypeError, ValueError, OverflowError):
+            pass
+    raw = _text(value).lstrip("'").strip()
+    for pattern in ("%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d", "%d/%m/%y"):
         try:
             return datetime.strptime(raw[:10], pattern).date()
         except ValueError:
@@ -124,11 +134,27 @@ def _parse_datetime(value, *, required=False, label="Data e hora") -> datetime |
         return value.replace(second=0, microsecond=0)
     if isinstance(value, date):
         return datetime.combine(value, time.min)
-    raw = _text(value)
+    if isinstance(value, time):
+        return datetime.combine(date.today(), value).replace(second=0, microsecond=0)
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        try:
+            parsed = from_excel(value)
+            if isinstance(parsed, datetime):
+                return parsed.replace(second=0, microsecond=0)
+            if isinstance(parsed, date):
+                return datetime.combine(parsed, time.min)
+            if isinstance(parsed, time):
+                return datetime.combine(date.today(), parsed).replace(second=0, microsecond=0)
+        except (TypeError, ValueError, OverflowError):
+            pass
+    raw = _text(value).lstrip("'").strip()
     normalized = raw.replace("Z", "").replace("T", " ")
     for pattern in (
         "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M",
         "%d/%m/%Y %H:%M:%S", "%d/%m/%Y %H:%M",
+        "%Y/%m/%d %H:%M:%S", "%Y/%m/%d %H:%M",
+        "%d/%m/%y %H:%M:%S", "%d/%m/%y %H:%M",
+        "%Y-%m-%d %H:%M:%S.%f", "%d/%m/%Y %H:%M:%S.%f",
     ):
         try:
             return datetime.strptime(normalized, pattern).replace(second=0, microsecond=0)
@@ -140,6 +166,15 @@ def _parse_datetime(value, *, required=False, label="Data e hora") -> datetime |
 def _parse_date_or_datetime(value, *, required=False, label="Data") -> date | datetime | None:
     if isinstance(value, datetime):
         return value.replace(second=0, microsecond=0)
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        try:
+            parsed = from_excel(value)
+            if isinstance(parsed, datetime):
+                return parsed.replace(second=0, microsecond=0)
+            if isinstance(parsed, date):
+                return parsed
+        except (TypeError, ValueError, OverflowError):
+            pass
     raw = _text(value)
     if raw and ("T" in raw or ":" in raw):
         return _parse_datetime(value, required=required, label=label)
@@ -468,7 +503,17 @@ class ReparoClient:
             values = {field: sheet.cell(row_number, column).value for field, column in mapping.items()}
             if not any(value not in (None, "") for value in values.values()):
                 continue
-            item = {field: self._serialize(field, values[field]) for field in FIELDS}
+            item = {}
+            for field in FIELDS:
+                try:
+                    item[field] = self._serialize(field, values[field])
+                except DataClientError as exc:
+                    value = _text(values[field])[:80] or "(vazio)"
+                    raise DataClientError(
+                        f"REPARO.xlsx — linha {row_number}, coluna {field}: "
+                        f"{exc.message} Valor encontrado: {value}",
+                        status_code=400,
+                    ) from exc
             item["_row"] = row_number
             rows.append(item)
         return rows

@@ -1,12 +1,13 @@
 import tempfile
 import unittest
 import zipfile
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import quote
 
 from openpyxl import Workbook, load_workbook
+from openpyxl.utils.datetime import to_excel
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
 import api
@@ -227,6 +228,39 @@ class ReparoClientTests(unittest.TestCase):
         self.assertIn("TECNOLOGIA", normalized_headers)
         self.assertEqual(sheet["D2"].value, "CLIENTE EXISTENTE")
         prepared.close()
+
+    def test_reads_dates_copied_from_excel_as_serials_and_text(self):
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "REPARO"
+        sheet.append(["ID_VANTIVE", "DATA_ABERTURA", "DATA_ENCERRAMENTO"])
+        sheet.append([
+            "SERIAL-01",
+            to_excel(datetime(2026, 8, 1, 11, 32)),
+            "02/08/2026 10:03",
+        ])
+        sheet["B2"].number_format = "General"
+        workbook.save(self.path)
+        workbook.close()
+
+        item = self.client.list()["items"][0]
+        self.assertEqual(item["DATA_ABERTURA"], "2026-08-01T11:32")
+        self.assertEqual(item["DATA_ENCERRAMENTO"], "2026-08-02T10:03")
+
+    def test_invalid_date_reports_excel_row_column_and_value(self):
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "REPARO"
+        sheet.append(["ID_VANTIVE", "DATA_ABERTURA"])
+        sheet.append(["INVALID-01", "DATA DESCONHECIDA"])
+        workbook.save(self.path)
+        workbook.close()
+
+        with self.assertRaisesRegex(
+            Exception,
+            "linha 2, coluna DATA_ABERTURA.*DATA DESCONHECIDA",
+        ):
+            self.client.list()
 
     def test_replaces_structured_table_with_excel_compatible_filter(self):
         workbook = Workbook()
