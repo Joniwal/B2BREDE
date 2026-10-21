@@ -11,12 +11,14 @@ Expõe a classe `DataClient` com uma interface de CRUD:
   dashboard_aggregates, items_by_date
 """
 
+import glob
 import os
 import io
 import logging
 import re
 import tempfile
 import threading
+import time
 import unicodedata
 from calendar import monthrange
 from copy import copy
@@ -105,6 +107,18 @@ class DataClientError(Exception):
         super().__init__(message)
         self.message = message
         self.status_code = status_code
+
+
+class _PlanilhaMudouDuranteGravacao(DataClientError):
+    """O arquivo foi alterado (ex.: sincronização do OneDrive de outro usuário)
+    entre o início e o fim da gravação. Nada foi gravado; a operação é refeita."""
+
+    def __init__(self):
+        super().__init__(
+            "A planilha foi atualizada por outro usuário durante a gravação. "
+            "Aguarde alguns segundos e tente novamente.",
+            status_code=409,
+        )
 
 
 def _strip_accents(value: str) -> str:
@@ -326,6 +340,47 @@ def _localizar_excel_no_onedrive(nome_arquivo: str):
     return None, pastas_onedrive
 
 
+def _listar_candidatos_excel(nome_arquivo: str) -> list[Path]:
+    """Todas as cópias com o nome EXATO do arquivo nas pastas do OneDrive.
+
+    Usado para diagnóstico e para a dica EXCEL_FOLDER_HINT: se existir mais de
+    uma cópia (ex.: uma antiga na raiz do OneDrive pessoal), usuários diferentes
+    podem estar lendo arquivos diferentes."""
+    encontrados: list[Path] = []
+    vistos: set[str] = set()
+    for pasta in _obter_pastas_onedrive():
+        try:
+            for caminho in pasta.rglob(nome_arquivo):
+                if not caminho.is_file() or caminho.name.startswith("~$"):
+                    continue
+                chave = str(caminho.resolve()).casefold()
+                if chave not in vistos:
+                    vistos.add(chave)
+                    encontrados.append(caminho)
+        except (PermissionError, OSError):
+            continue
+    encontrados.sort(key=lambda c: (len(c.parts), str(c).casefold()))
+    return encontrados
+
+
+def _estado_onedrive(caminho: Path):
+    """Windows: informa se o arquivo está só na nuvem ou mantido no PC.
+    Em outros sistemas (sem st_file_attributes) retorna None."""
+    try:
+        attrs = getattr(caminho.stat(), "st_file_attributes", None)
+    except OSError:
+        return None
+    if attrs is None:
+        return None
+    if attrs & (0x400000 | 0x40000 | 0x1000):  # RECALL_ON_DATA_ACCESS | RECALL_ON_OPEN | OFFLINE
+        return "somente_online"
+    if attrs & 0x80000:  # PINNED
+        return "sempre_manter_no_dispositivo"
+    if attrs & 0x100000:  # UNPINNED
+        return "no_dispositivo_pode_ser_liberado"
+    return "no_dispositivo"
+
+
 class DataClient:
     """Cliente de dados baseado exclusivamente em um arquivo Excel local."""
 
@@ -361,6 +416,17 @@ class DataClient:
 
         if DataClient._caminho_cache and Path(DataClient._caminho_cache).is_file():
             return DataClient._caminho_cache
+
+        # Opcional: EXCEL_FOLDER_HINT é só um trecho do nome da pasta compartilhada
+        # (ex.: "HQSuporte - APPREDE"), igual para todos os usuários — não é um
+        # caminho fixo. Evita que uma cópia antiga com o mesmo nome, em outra
+        # pasta do OneDrive, seja escolhida no lugar da pasta compartilhada.
+        dica = os.getenv("EXCEL_FOLDER_HINT", "").strip().casefold()
+        if dica:
+            for candidato in _listar_candidatos_excel(self.excel_filename):
+                if dica in str(candidato.parent).casefold():
+                    DataClient._caminho_cache = str(candidato)
+                    return DataClient._caminho_cache
 
         encontrado, pastas_verificadas = _localizar_excel_no_onedrive(self.excel_filename)
         if encontrado:
@@ -972,14 +1038,55 @@ class DataClient:
         abas_lista = [a.strip() for a in abas.split(",")] if "," in abas or abas else [abas]
         aba_configurada_existe = self.excel_sheet in abas_lista
 
+        caminho_path = Path(caminho)
+        try:
+            info = caminho_path.stat()
+            modificado_em = datetime.fromtimestamp(info.st_mtime).isoformat(timespec="seconds")
+            tamanho_bytes = info.st_size
+        except OSError:
+            modificado_em, tamanho_bytes = None, None
+
+        atual = str(caminho_path.resolve()).casefold()
+        outras_copias = [
+            str(c) for c in _listar_candidatos_excel(self.excel_filename)
+            if str(c.resolve()).casefold() != atual
+        ]
+        # Cópias geradas pelo OneDrive em caso de conflito: "REDE_B2B-NOMEDOPC.xlsx",
+        # "REDE_B2B (1).xlsx" etc. Os dados dessas cópias NÃO são lidos pelo app.
+        copias_em_conflito = sorted(
+            str(c) for c in caminho_path.parent.glob(
+                f"{glob.escape(caminho_path.stem)}*{caminho_path.suffix}"
+            )
+            if c.name != caminho_path.name and not c.name.startswith("~$")
+        )
+        estado_onedrive = _estado_onedrive(caminho_path)
+
+        mensagem = (
+            "Excel localizado." if aba_configurada_existe
+            else f"Arquivo localizado, mas a aba '{self.excel_sheet}' não existe nele."
+        )
+        alertas = []
+        if copias_em_conflito:
+            alertas.append("há cópias em conflito do OneDrive ao lado do arquivo")
+        if outras_copias:
+            alertas.append("existem outros arquivos com o mesmo nome no OneDrive")
+        if estado_onedrive == "somente_online":
+            alertas.append("o arquivo está somente na nuvem (não baixado neste PC)")
+        if alertas:
+            mensagem += " Atenção: " + "; ".join(alertas) + "."
+
         return {
             "disponivel": True,
             "caminho": caminho,
             "aba_configurada": self.excel_sheet,
             "abas_no_arquivo": abas,
             "aba_configurada_existe": aba_configurada_existe,
-            "mensagem": "Excel localizado." if aba_configurada_existe
-                else f"Arquivo localizado, mas a aba '{self.excel_sheet}' não existe nele.",
+            "modificado_em": modificado_em,
+            "tamanho_bytes": tamanho_bytes,
+            "estado_onedrive": estado_onedrive,
+            "outras_copias_mesmo_nome": outras_copias,
+            "copias_em_conflito": copias_em_conflito,
+            "mensagem": mensagem,
         }
 
     def get_item(self, item_id):
@@ -989,42 +1096,78 @@ class DataClient:
                 return row
         raise DataClientError(f"Registro com IDCLIENTE={item_id} não encontrado.", status_code=404)
 
+    def _transacao(self, operacao, tentativas=3):
+        """Executa leitura + gravação como uma unidade, sob EXCEL_LOCK.
+
+        Se o arquivo mudar no meio da gravação (típico quando o OneDrive baixa a
+        versão de outro usuário), nada é gravado e a operação é refeita lendo os
+        dados novos. O lock é local (este processo): não coordena outros PCs."""
+        for tentativa in range(1, tentativas + 1):
+            try:
+                with EXCEL_LOCK:
+                    return operacao()
+            except _PlanilhaMudouDuranteGravacao as exc:
+                if tentativa == tentativas:
+                    raise DataClientError(exc.message, status_code=409) from exc
+                logger.warning("Planilha mudou durante a gravação; tentativa %s/%s", tentativa, tentativas)
+                time.sleep(0.5 * tentativa)
+
     def create_item(self, data):
         data = self._sanitize_and_validate(data, is_new=True)
-        rows = self._excel_read_all()
-        if any(str(r.get("IDCLIENTE")) == str(data.get("IDCLIENTE")) for r in rows):
-            raise DataClientError(f"Já existe um registro com IDCLIENTE={data.get('IDCLIENTE')}.", status_code=409)
-        new_row = {f: data.get(f, "") for f in FIELDS}
-        rows.append(new_row)
-        self._excel_write_all(rows)
-        logger.info("Registro criado: IDCLIENTE=%s", data.get("IDCLIENTE"))
-        return self.get_item(data.get("IDCLIENTE"))
+        item_id = data.get("IDCLIENTE")
+
+        def operacao():
+            rows = self._excel_read_all()
+            if any(str(r.get("IDCLIENTE")) == str(item_id) for r in rows):
+                raise DataClientError(f"Já existe um registro com IDCLIENTE={item_id}.", status_code=409)
+            rows.append({f: data.get(f, "") for f in FIELDS})
+            # Grava SOMENTE a linha nova; as demais permanecem como estão no arquivo.
+            self._excel_write_all(rows, only={"op": "create", "id": item_id})
+
+        self._transacao(operacao)
+        logger.info("Registro criado: IDCLIENTE=%s", item_id)
+        return self.get_item(item_id)
 
     def update_item(self, item_id, data):
         data = self._sanitize_and_validate(data, is_new=False)
-        rows = self._excel_read_all()
-        found = False
-        for row in rows:
-            if str(row.get("IDCLIENTE")) == str(item_id):
-                row.update(data)
-                row["SITELIBERADO"] = _normalize_site_liberado(
-                    row.get("TECNOLOGIA"),
-                    row.get("SITELIBERADO"),
+
+        def operacao():
+            rows = self._excel_read_all()
+            for row in rows:
+                if str(row.get("IDCLIENTE")) == str(item_id):
+                    antes = dict(row)
+                    row.update(data)
+                    row["SITELIBERADO"] = _normalize_site_liberado(
+                        row.get("TECNOLOGIA"),
+                        row.get("SITELIBERADO"),
+                    )
+                    alterados = {
+                        f for f in FIELDS
+                        if str(row.get(f) or "") != str(antes.get(f) or "")
+                    }
+                    break
+            else:
+                raise DataClientError(f"Registro com IDCLIENTE={item_id} não encontrado.", status_code=404)
+            if alterados:
+                # Grava SOMENTE os campos alterados desta linha. Mudanças de outros
+                # usuários em outras linhas/campos não são revertidas.
+                self._excel_write_all(
+                    rows, only={"op": "update", "id": item_id, "fields": alterados}
                 )
-                found = True
-                break
-        if not found:
-            raise DataClientError(f"Registro com IDCLIENTE={item_id} não encontrado.", status_code=404)
-        self._excel_write_all(rows)
+
+        self._transacao(operacao)
         logger.info("Registro atualizado: IDCLIENTE=%s", item_id)
         return self.get_item(item_id)
 
     def delete_item(self, item_id):
-        rows = self._excel_read_all()
-        new_rows = [r for r in rows if str(r.get("IDCLIENTE")) != str(item_id)]
-        if len(new_rows) == len(rows):
-            raise DataClientError(f"Registro com IDCLIENTE={item_id} não encontrado.", status_code=404)
-        self._excel_write_all(new_rows)
+        def operacao():
+            rows = self._excel_read_all()
+            new_rows = [r for r in rows if str(r.get("IDCLIENTE")) != str(item_id)]
+            if len(new_rows) == len(rows):
+                raise DataClientError(f"Registro com IDCLIENTE={item_id} não encontrado.", status_code=404)
+            self._excel_write_all(new_rows, only={"op": "delete", "id": item_id})
+
+        self._transacao(operacao)
         logger.info("Registro excluído: IDCLIENTE=%s", item_id)
         return {"deleted": item_id}
 
@@ -1460,7 +1603,20 @@ class DataClient:
 
         return rows
 
-    def _excel_write_all(self, rows):
+    @staticmethod
+    def _assinatura_arquivo(caminho):
+        info = os.stat(caminho)
+        return (info.st_mtime_ns, info.st_size)
+
+    def _excel_write_all(self, rows, only=None):
+        """Grava no Excel.
+
+        only=None  -> comportamento antigo: reconcilia o arquivo inteiro com `rows`
+                      (linhas ausentes em `rows` são LIMPAS no arquivo).
+        only={"op": "create"|"update"|"delete", "id": IDCLIENTE, "fields": {...}}
+                   -> mexe apenas nessa linha (e, no update, só nesses campos),
+                      sempre calculado sobre o arquivo recém-aberto.
+        """
         caminho = self._resolver_caminho_excel()
         caminho_path = Path(caminho)
         arquivo_temporario = None
@@ -1470,6 +1626,7 @@ class DataClient:
             try:
                 if caminho_path.with_name("~$" + caminho_path.name).exists():
                     raise PermissionError("O arquivo está aberto no Excel Desktop.")
+                assinatura_inicial = self._assinatura_arquivo(caminho_path)
 
                 workbook = load_workbook(
                     caminho_path,
@@ -1567,16 +1724,43 @@ class DataClient:
                         else number_format
                     )
 
+                if only is None:
+                    ids_excluir = set(existing) - set(desired)
+                    ids_atualizar = set(existing) & set(desired)
+                    ids_incluir = set(desired) - set(existing)
+                    campos_atualizar = writable_fields
+                else:
+                    alvo = str(only["id"]).strip()
+                    operacao = only["op"]
+                    if operacao == "create":
+                        if alvo in existing:
+                            raise DataClientError(
+                                f"Já existe um registro com IDCLIENTE={alvo}.", status_code=409
+                            )
+                        if alvo not in desired:
+                            raise DataClientError("Registro novo ausente da gravação.", status_code=500)
+                    elif alvo not in existing:
+                        raise DataClientError(
+                            f"Registro com IDCLIENTE={alvo} não encontrado.", status_code=404
+                        )
+                    ids_excluir = {alvo} if operacao == "delete" else set()
+                    ids_atualizar = {alvo} if operacao == "update" else set()
+                    ids_incluir = {alvo} if operacao == "create" else set()
+                    escolhidos = only.get("fields")
+                    campos_atualizar = [
+                        f for f in writable_fields if not escolhidos or f in escolhidos
+                    ]
+
                 # Exclusão: limpa valores, sem remover linha, estilo ou tabela.
-                for item_id in set(existing) - set(desired):
+                for item_id in ids_excluir:
                     row_number = existing[item_id]
                     for field in writable_fields:
                         assign(row_number, field, None)
 
                 # Atualização: somente valores que mudaram; estilos permanecem.
-                for item_id in set(existing) & set(desired):
+                for item_id in ids_atualizar:
                     row_number = existing[item_id]
-                    for field in writable_fields:
+                    for field in campos_atualizar:
                         assign(row_number, field, desired[item_id].get(field, ""))
 
                 # Inclusão: reutiliza slots vazios ou amplia a MESMA tabela.
@@ -1588,7 +1772,7 @@ class DataClient:
                         for field in writable_fields
                     )
                 ]
-                for item_id in sorted(set(desired) - set(existing)):
+                for item_id in sorted(ids_incluir):
                     if empty_rows:
                         row_number = empty_rows.pop(0)
                     else:
@@ -1632,6 +1816,10 @@ class DataClient:
                 workbook.save(arquivo_temporario)
                 validation = load_workbook(arquivo_temporario, read_only=True, data_only=False)
                 validation.close()
+                # Se o arquivo mudou desde que foi aberto (ex.: o OneDrive trouxe a
+                # versão de outro usuário), NÃO substitui: isso apagaria a alteração dele.
+                if self._assinatura_arquivo(caminho_path) != assinatura_inicial:
+                    raise _PlanilhaMudouDuranteGravacao()
                 os.replace(arquivo_temporario, caminho)
             except DataClientError:
                 raise
